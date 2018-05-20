@@ -1,11 +1,14 @@
 function[E,x,y,D,J,nv] = meshq1(r,XX,YY,EE)
 % for parallelogram: V=0.25(Va+Vb+Vc+Vd)+(Vb-Va)*r+(Vd-Va)*s
 % for any straight edged quadilateral ABCD
-% V = 0.25*[ Va*(1-r)(1-s) + Vb*(1+r)(1-s) + Vc*(1+r)(1+s) + Va*(1-r)(1+s) ]
+% EE(ei,:) is the list of vertices associated with element ei.
+% XX(vi) contains X coordiate of vertex vi.
 
 [R,S] = ndgrid(r); N = length(r); ne = length(EE(:,1));
 R = reshape(R,[N*N,1]); S = reshape(S,[N*N,1]);
-D = zeros(ne,N*N,4); J = zeros(ne,N*N); %D=[dxdr,dxds,dydr,dyds]
+D = zeros(ne,N*N,4); % D=[dxdr,dxds,dydr,dyds]
+J = zeros(ne,N*N);
+G = zeros(ne,N*N,4);
 x = []; E = zeros(ne,N*N);
 xx = zeros(N*N,2);
 
@@ -13,13 +16,13 @@ for ei = 1:ne
   KK = EE(ei,:);
   Vx = XX(KK);
   Vy = YY(KK);
-  xx(:,1)=0.25*(Vx(1)*(1-R).*(1-S)+Vx(2)*(1+R).*(1-S)+Vx(3)*(1+R).*(1+S)+Vx(4)*(1-R).*(1+S));
-  xx(:,2)=0.25*(Vy(1)*(1-R).*(1-S)+Vy(2)*(1+R).*(1-S)+Vy(3)*(1+R).*(1+S)+Vy(4)*(1-R).*(1+S));
-
-  D(ei,:,1) = 0.25*(-Vx(1)*(1-S)+Vx(2)*(1-S)+Vx(3)*(1+S)-Vx(4)*(1+S));
-  D(ei,:,2) = 0.25*(-Vx(1)*(1-R)-Vx(2)*(1-S)+Vx(3)*(1+R)+Vx(4)*(1-R));
-  D(ei,:,3) = 0.25*(-Vy(1)*(1-S)+Vy(2)*(1-S)+Vy(3)*(1+S)-Vy(4)*(1+S));
-  D(ei,:,4) = 0.25*(-Vy(1)*(1-R)-Vy(2)*(1-S)+Vy(3)*(1+R)+Vy(4)*(1-R));
+  xx(:,1)=0.25*sum(Vx)+0.5*(Vx(2)-Vx(1))*R+0.5*(Vx(4)-Vx(1))*S;
+  xx(:,2)=0.25*sum(Vy)+0.5*(Vy(2)-Vy(1))*R+0.5*(Vy(4)-Vy(1))*S;
+  % D=[dxdr,dxds,dydr,dyds]
+  D(ei,:,1) = 0.5*(Vx(2)-Vx(1));
+  D(ei,:,2) = 0.5*(Vx(4)-Vx(1));
+  D(ei,:,3) = 0.5*(Vy(2)-Vy(1));
+  D(ei,:,4) = 0.5*(Vy(4)-Vy(1));
   J(ei,:) = D(ei,:,1).*D(ei,:,4) - D(ei,:,2).*D(ei,:,3); J(ei,:) = abs(J(ei,:));
   % follow lexicographical ordering within each element.
   if(ei==1) x = xx; end;

@@ -1,5 +1,6 @@
 % rectangle mesh
 ne = 4; EE = zeros(ne,4);
+% EE(ei,:) is the list of vertices associated with element ei.
 EE(1,:) = [1,2,5,4];
 EE(2,:) = [2,3,6,5];
 EE(3,:) = [4,5,8,7];

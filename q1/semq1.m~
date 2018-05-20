@@ -1,7 +1,7 @@
 % solve -(pu')' = f in 2 dimensions with arbitrary elements
 clear all;
 po=10;N=po+1;
-addpath('semhat'); [Bh,Dh,r,w] = semhat(po);
+addpath('../semhat'); [Bh,Dh,r,w] = semhat(po);
 
 % make spectral mesh
 %meshIllinois;
@@ -72,7 +72,7 @@ maxit = 1e3; tol = 1e-13;
 u = pcg(A,h,tol,maxit,M);
 %u = A\h;
 
-figure(); title('Numerical Solution u(x,y)'); hold on; addpath('./plt')
+figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 plot3(x,y,u,'ko');
 grid on; shading interp; axis tight; colormap(fireice);
 
@@ -82,6 +82,6 @@ Y=reshape(y,[nx,nx]);
 U=reshape(u,[nx,nx]);
 %Er=reshape(u-ex,[nx,nx]);
 
-figure(); title('Numerical Solution u(x,y)'); hold on; addpath('./plt')
+figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 surfc(X,Y,U);
 grid on; shading interp; axis tight; colorbar; colormap(fireice);

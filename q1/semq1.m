@@ -1,12 +1,12 @@
 % solve -(pu')' = f in 2 dimensions with arbitrary elements
 clear all;
 po=10;N=po+1;
-addpath('semhat'); [Bh,Dh,r,w] = semhat(po);
+addpath('../semhat'); [Bh,Dh,r,w] = semhat(po);
 
 % make spectral mesh
 %meshIllinois;
 meshRect;
-[E,x,y,Derev,Jac,nv] = meshq1(r,XX,YY,EE); %Derev=[dxdr,dxds,dydr,dyds]
+[E,x,y,Jac,GG,nv] = meshq1(r,XX,YY,EE); %Derev=[dxdr,dxds,dydr,dyds]
 
 % input f, p, exact solution
 f  = sin(pi*x).*sin(pi*y);
@@ -17,15 +17,12 @@ ex = 0.5*f/(pi*pi);
 A = sparse(nv,nv);
 B = sparse(nv,nv);
 D = zeros(N*N,4);
-G = zeros(2,2,N*N);
+G = zeros(N*N,3);
 for ei = 1:ne
   K = E(ei,:);
   xe = x(K); ye = y(K); pe = p(K);
-  J = Jac(ei,:); D(:,:) = Derev(ei,:,:); D = 1./D;
-  G(1,1,:) = D(:,1).*D(:,1) + D(:,3).*D(:,3);
-  G(1,2,:) = D(:,1).*D(:,2) + D(:,3).*D(:,4);
-  G(2,2,:) = D(:,2).*D(:,2) + D(:,4).*D(:,4);
-  G(2,1,:) = G(1,2,:);
+  J = Jac(ei,:);
+  G(:,:) = GG(ei,:,:);
   %P = diag(pe); W = P*kron(Bh,Bh); I = eye(N);
   %Ae = kron(I,Dh') * W * kron(I,Dh) + kron(Dh',I) * W * kron(Dh,I);
   % rectangular
@@ -72,7 +69,7 @@ maxit = 1e3; tol = 1e-13;
 u = pcg(A,h,tol,maxit,M);
 %u = A\h;
 
-figure(); title('Numerical Solution u(x,y)'); hold on; addpath('./plt')
+figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 plot3(x,y,u,'ko');
 grid on; shading interp; axis tight; colormap(fireice);
 
@@ -82,6 +79,6 @@ Y=reshape(y,[nx,nx]);
 U=reshape(u,[nx,nx]);
 %Er=reshape(u-ex,[nx,nx]);
 
-figure(); title('Numerical Solution u(x,y)'); hold on; addpath('./plt')
+figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 surfc(X,Y,U);
 grid on; shading interp; axis tight; colorbar; colormap(fireice);
