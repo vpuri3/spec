@@ -3,11 +3,11 @@ clear all;
 po=10;N=po+1;
 addpath('../semhat'); [Bh,Dh,r,w] = semhat(po);
 
-% make spectral mesh
+% make GLL element mesh
 %meshIllinois;
 meshRect;
 [E,x,y,J,G,nv] = meshq1(r,XX,YY,EE);
-
+p
 % input f, p, exact solution
 f  = sin(pi*x).*sin(pi*y);
 p  = ones(size(x));
@@ -19,20 +19,20 @@ B = sparse(nv,nv);
 Je = zeros(N*N,1);
 Ge = zeros(N*N,3);
 % assemble and turn into an iterative solver. make function afun
+W = kron(w,w); I = eye(N);
 for ei = 1:ne
   K = E(ei,:);
   xe = x(K); ye = y(K); pe = p(K);
   Je(:,:) = J(ei,:);
   Ge(:,:) = G(ei,:,:);
   Ge(:,1) = pe.*Ge(:,1); Ge(:,2) = pe.*Ge(:,2); Ge(:,3) = pe.*Ge(:,3);
-  I = eye(N);
-  Ae =    kron(I,Dh')*diag(Ge(:,1))*kron(I,Dh);
-  Ae = Ae+kron(I,Dh')*diag(Ge(:,2))*kron(Dh,I);
-  Ae = Ae+kron(Dh',I)*diag(Ge(:,2))*kron(I,Dh);
-  Ae = Ae+kron(Dh',I)*diag(Ge(:,3))*kron(Dh,I);
+  Ae =    kron(I,Dh')*diag(W.*Ge(:,1))*kron(I,Dh);
+  Ae = Ae+kron(I,Dh')*diag(W.*Ge(:,2))*kron(Dh,I);
+  Ae = Ae+kron(Dh',I)*diag(W.*Ge(:,2))*kron(I,Dh);
+  Ae = Ae+kron(Dh',I)*diag(W.*Ge(:,3))*kron(Dh,I);
   %rectangular
-  P = diag(pe); W = P*kron(0.5*lx*Bh,0.5*ly*Bh); I = eye(N);
-  Ae = kron(I,(2/lx)*Dh') * W * kron(I,(2/lx)*Dh) + kron((2/ly)*Dh',I) * W * kron((2/ly)*Dh,I);
+  %P = diag(pe); W = P*kron(0.5*lx*Bh,0.5*ly*Bh)
+  %Ae = kron(I,(2/lx)*Dh') * W * kron(I,(2/lx)*Dh) + kron((2/ly)*Dh',I) * W * kron((2/ly)*Dh,I);
 
   Be = diag(Je)*kron(Bh,Bh);
   B(K,K) = B(K,K) + Be;

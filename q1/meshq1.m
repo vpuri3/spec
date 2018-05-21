@@ -11,7 +11,7 @@ J = zeros(ne,N*N);
 G = zeros(ne,N*N,3); % G_11,G_12,G_22
 x = []; E = zeros(ne,N*N);
 xx = zeros(N*N,2);
-
+tol = 1e-12;
 for ei = 1:ne
   KK = EE(ei,:);
   Vx = XX(KK);
@@ -22,12 +22,11 @@ for ei = 1:ne
   dxds = 0.5*(Vx(4)-Vx(1)); dsdx = 1./dxds;
   dydr = 0.5*(Vy(2)-Vy(1)); drdy = 1./dydr;
   dyds = 0.5*(Vy(4)-Vy(1)); dsdy = 1./dyds;
+  if (min(abs(dxdr)) < tol) drdx(:) = 0; end;
+  if (min(abs(dxds)) < tol) dsdx(:) = 0; end;
+  if (min(abs(dydr)) < tol) drdy(:) = 0; end;
+  if (min(abs(dyds)) < tol) dsdy(:) = 0; end;
   J(ei,:) = dxdr.*dyds-dydr.*dxds; J(ei,:) = abs(J(ei,:));
-  tol=1e-12;
-  if (min(abs(dxdr)) < tol) drdx = 0; end;
-  if (min(abs(dxds)) < tol) dsdx = 0; end;
-  if (min(abs(dydr)) < tol) drdy = 0; end;
-  if (min(abs(dyds)) < tol) dsdy = 0; end;
   G(ei,:,1) = (drdx.*drdx+drdy.*drdy).*J(ei,:);
   G(ei,:,2) = (drdx.*dsdx+drdy.*dsdy).*J(ei,:);
   G(ei,:,3) = (dsdx.*dsdx+dsdy.*dsdy).*J(ei,:);
