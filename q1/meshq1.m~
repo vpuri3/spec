@@ -1,4 +1,4 @@
-function[E,x,y,D,J,nv] = meshq1(r,XX,YY,EE)
+function[E,x,y,J,G,nv] = meshq1(r,XX,YY,EE)
 % for parallelogram: V=0.25(Va+Vb+Vc+Vd)+(Vb-Va)*r+(Vd-Va)*s
 % for any straight edged quadilateral ABCD
 % EE(ei,:) is the list of vertices associated with element ei.
@@ -8,7 +8,7 @@ function[E,x,y,D,J,nv] = meshq1(r,XX,YY,EE)
 R = reshape(R,[N*N,1]); S = reshape(S,[N*N,1]);
 D = zeros(ne,N*N,4); % D=[dxdr,dxds,dydr,dyds]
 J = zeros(ne,N*N);
-G = zeros(ne,N*N,4);
+G = zeros(ne,N*N,3); % G_11,G_12,G_22
 x = []; E = zeros(ne,N*N);
 xx = zeros(N*N,2);
 
@@ -24,6 +24,9 @@ for ei = 1:ne
   D(ei,:,3) = 0.5*(Vy(2)-Vy(1));
   D(ei,:,4) = 0.5*(Vy(4)-Vy(1));
   J(ei,:) = D(ei,:,1).*D(ei,:,4) - D(ei,:,2).*D(ei,:,3); J(ei,:) = abs(J(ei,:));
+  G(ei,:,1) = (D(ei,:,1).*D(ei,:,1) + D(ei,:,3).*D(ei,:,3)).*J(ei,:);
+  G(ei,:,2) = (D(ei,:,1).*D(ei,:,2) + D(ei,:,3).*D(ei,:,4)).*J(ei,:);
+  G(ei,:,3) = (D(ei,:,2).*D(ei,:,2) + D(ei,:,4).*D(ei,:,4)).*J(ei,:);
   % follow lexicographical ordering within each element.
   if(ei==1) x = xx; end;
   x = [x; setdiff(xx,x,'rows')];
@@ -33,6 +36,7 @@ for ei = 1:ne
 end
 nv = length(x);
 y = x(:,2); x = x(:,1);
+
 
 figure(); title('Quad Mesh'); hold on; grid on;
 for ei = 1:ne
