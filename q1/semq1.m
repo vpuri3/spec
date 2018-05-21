@@ -1,13 +1,13 @@
 % solve -(pu')' = f in 2 dimensions with arbitrary elements
 clear all;
-po=10;N=po+1;
+po=20;N=po+1;
 addpath('../semhat'); [Bh,Dh,r,w] = semhat(po);
 
 % make GLL element mesh
 %meshIllinois;
 meshRect;
 [E,x,y,J,G,nv] = meshq1(r,XX,YY,EE);
-p
+
 % input f, p, exact solution
 f  = sin(pi*x).*sin(pi*y);
 p  = ones(size(x));
@@ -61,6 +61,7 @@ h(bflg) = ub;
 M = diag(diag(A));
 maxit = 1e3; tol = 1e-13;
 u = pcg(A,h,tol,maxit,M);
+er = max(abs(ex-u));
 
 figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 plot3(x,y,u,'ko');
