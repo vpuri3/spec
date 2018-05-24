@@ -1,6 +1,6 @@
 % solve -(pu')' = f in 2 dimensions with arbitrary elements
 clear all;
-po=20;N=po+1;
+po=7;N=po+1;
 addpath('../semhat'); [Bh,Dh,r,w] = semhat(po);
 
 % make GLL element mesh
@@ -61,7 +61,7 @@ h(bflg) = ub;
 M = diag(diag(A));
 maxit = 1e3; tol = 1e-13;
 u = pcg(A,h,tol,maxit,M);
-er = max(abs(ex-u));
+er = max(abs(ex-u))
 
 figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 plot3(x,y,u,'ko');
@@ -71,8 +71,12 @@ nx = sqrt(length(x));
 X=reshape(x,[nx,nx]);
 Y=reshape(y,[nx,nx]);
 U=reshape(u,[nx,nx]);
-%Er=reshape(u-ex,[nx,nx]);
+Er=reshape(u-ex,[nx,nx]);
 
 figure(); title('Numerical Solution u(x,y)'); hold on; addpath('../plt')
 surfc(X,Y,U);
+grid on; shading interp; axis tight; colorbar; colormap(fireice);
+
+figure(); title('Error'); hold on; addpath('../plt')
+surfc(X,Y,Er);
 grid on; shading interp; axis tight; colorbar; colormap(fireice);

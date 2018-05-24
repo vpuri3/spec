@@ -1,11 +1,11 @@
 % solve -(pu')' = f in 2 dimensions with arbitrary elements
 clear all;
-po=20;N=po+1;
+po=10;N=po+1;
 addpath('semhat'); [Bh,Dh,r,w] = semhat(po);
 
 % make spectral mesh
-meshIllinois;
-%meshRect;
+%meshIllinois;
+meshRect;
 [E,x,y,Derev,Jac,nv] = meshq1(r,XX,YY,EE); %Derev=[dxdr,dxds,dydr,dyds]
 
 % input f, p, exact solution
@@ -40,20 +40,20 @@ for ei = 1:ne
 end
 
 % hom dirichlet boundary restriction
-tol=1e-12;
 % Illinois mesh
-Iflg = bitor(x==-1,x==2); Iflg = Iflg + bitor(y==0,y==5);
-Iflg = Iflg + bitand(y==1,x>=1-tol); Iflg = Iflg + bitand(y==1,x<=tol);
-Iflg = Iflg + bitand(y==4,x>=1-tol); Iflg = Iflg + bitand(y==4,x<=tol);
-Iflg = Iflg + bitand(y>=1-tol,x==1); Iflg = Iflg + bitand(y<=4+tol,x==1);
-Iflg = Iflg + bitand(y>=1-tol,x==0); Iflg = Iflg + bitand(y<=4+tol,x==0);
-bflg = find(Iflg);
-iflg = find(~Iflg); % indices corresponding to interior points.
-%rectangular mesh
-%Bflg = bitor(x==0,x==1);
-%Bflg = Bflg + bitor(y==0,y==1);
-%bflg = find(Bflg);  % boundary points
-%iflg = find(~Bflg); % interior points
+%tol=1e-12;
+%Iflg = bitor(x==-1,x==2); Iflg = Iflg + bitor(y==0,y==5);
+%Iflg = Iflg + bitand(y==1,x>=1-tol); Iflg = Iflg + bitand(y==1,x<=tol);
+%Iflg = Iflg + bitand(y==4,x>=1-tol); Iflg = Iflg + bitand(y==4,x<=tol);
+%Iflg = Iflg + bitand(y>=1-tol,x==1); Iflg = Iflg + bitand(y<=4+tol,x==1);
+%Iflg = Iflg + bitand(y>=1-tol,x==0); Iflg = Iflg + bitand(y<=4+tol,x==0);
+%Iflg = find(~Iflg); % indices corresponding to interior points.
+% rectangular mesh
+tol=1e-12;
+Bflg = bitor(x==0,x==1);
+Bflg = Bflg + bitor(y==0,y==1);
+bflg = find(Bflg);  % boundary points
+iflg = find(~Bflg); % interior points
 
 % apply Dirichlet BC
 I = speye(nv);
