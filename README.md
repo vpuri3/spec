@@ -1,2 +1,2 @@
 # spec
-Spectral Element Code
+Toy Spectral Element Code
