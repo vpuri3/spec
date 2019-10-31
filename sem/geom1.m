@@ -1,5 +1,5 @@
 %
-function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = g(lx)
+function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(z,ze)
 [z ,w ] = zwgll(lx-1);
 [ze,we] = zwgll(1);
 
@@ -24,4 +24,4 @@ if(0)
 	plot(xsp,ysp,'mo-');      % s-plus
 	plot(xrm,yrm,'bo-');      % r-minus
 	plot(xrp,yrp,'ko-');      % r-plus
-	end
+end

@@ -2,10 +2,12 @@
 % input: Bmd - diag mass mat on quadrature nodes
 %        Jd  - interpolation matrix from evaluation
 %              to quadrature nodes
-function [v] = mass(Bmd,Jd,u);
+function [w] = mass2d(Bmd,Jd,msk,u);
 
-v = ABu(Jd,Jd,u);
-v = Bmd.*v;
-v = ABu(Jd',Jd',v);
+w = ABu(Jd,Jd,u);
+w = Bmd.*w;
+w = ABu(Jd',Jd',w);
+
+w = msk .* w;
 
 end

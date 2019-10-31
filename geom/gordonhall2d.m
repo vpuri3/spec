@@ -1,17 +1,11 @@
 %
-function [x,y] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,lx)
+function [x,y] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Je)
 %
-% Godron Hall
-% refer to
-% https://wiki.math.ntnu.no/_media/ma8502/2014h/deformed2.pdf
+% Je - interpolation matrix from {-1,1} to basis points of length lx
 %
 
-[z ,w ] = zwgll(lx-1);
-[ze,we] = zwgll(1);
-
+lx = size(Je,1);
 I = eye(lx);
-Ie= eye(2);
-Je= interp_mat(z,ze);
 
 xv = [xrm([1,end]),xrp([1,end])]; % vertices
 yv = [yrm([1,end]),yrp([1,end])];
