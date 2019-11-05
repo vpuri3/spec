@@ -1,6 +1,6 @@
       function[J] =  interp_mat(xo,xi)
 %
-%     Compute the interpolation matrix from xi to xo
+%     Compute the Lagrange interpolation matrix from xi to xo
 %
       
       no = length(xo);

@@ -6,9 +6,9 @@ lxd = ceil(1.5*lx1);
 [zmd,wmd] = zwgll(lxd-1); % dealias
 [zme,wme] = zwgll(1);     % linear interpolation
 
-Jd = interp_mat(zmd,zm1);
-Jem1=interp_mat(zm1,zme);
-Jemd=interp_mat(zmd,zme);
+J1d=interp_mat(zmd,zm1);
+Je1=interp_mat(zm1,zme);
+Jed=interp_mat(zmd,zme);
 
 Dm1 = dhat(zm1);
 Im1 = eye(lx1);
@@ -20,10 +20,10 @@ Imd = eye(lxd);
 
 % deform geometry
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zm1,ze);
-[xm1,ym1] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Jem1);
+[xm1,ym1] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Je1);
 
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zmd,ze);
-[xmd,ymd] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Jemd);
+[xmd,ymd] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Jed);
 
 % Jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Im1,Dm1);

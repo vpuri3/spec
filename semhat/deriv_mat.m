@@ -1,6 +1,6 @@
       function[d] =  deriv_mat1(x)
 %
-%     Compute the interpolation matrix from x to x
+%     Compute the Lagrange interpolation matrix from x to x
 %
       
       ni = length(x);
