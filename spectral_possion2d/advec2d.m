@@ -1,16 +1,17 @@
 %
-%   \vect{c} \cdot \grad(u)
+%   (\vect{v},\vect{c} \cdot \grad(u))
 %
-function [v] = advec(cx,cy,Dm1,J1d,Bmd,rxmd,rymd,sxmd,symd,u,msk);
+function [w] = advec(u,cx,cy,Dm1,J1d,Bmd,rxmd,rymd,sxmd,symd);
 
-[ux,uy] = grad2d(Jd,Jd*Dm1,rxmd,rymd,sxmd,symd,u);
+[ux,uy] = grad2d(u,Ir,Is,Dr,Ds,rxm1,rym1,sxm1,sym1);
 
-v = cx.*ux + cy.*uy;
+uxd = ABu(Js,Jr,ux);
+uyd = ABu(Js,Jr,uy);
+cxd = ABu(Js,Jr,cx);
+cyd = ABu(Js,Jr,cy);
 
-v = Bmd.*v;
-
-v = ABu(J1d',J1d',u);
-
-v = v .* msk;
+w = cxd.*uxd + cyd.*uyd;
+w = Bmd.*w;
+w = ABu(Js',Jr',w);
 
 end

@@ -1,10 +1,10 @@
 %
-function [J,Jinv,rx,ry,sx,sy] = jac(x,y,I,D);
+function [J,Jinv,rx,ry,sx,sy] = jac(x,y,Ir,Is,Dr,Ds);
 
-xr = ABu(I,D,x); % dx/dr
-xs = ABu(D,I,x);
-yr = ABu(I,D,y);
-ys = ABu(D,I,y);
+xr = ABu(Is,Dr,x); % dx/dr
+xs = ABu(Ds,Ir,x);
+yr = ABu(Is,Dr,y);
+ys = ABu(Ds,Ir,y);
 
 J    = xr.*ys - xs.*yr;
 Jinv = 1 ./ J;

@@ -1,20 +1,17 @@
 %
-function [x,y] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Je)
+function [x,y] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Ix,Iy,Jer,Jes)
 %
-% Je - interpolation matrix from {-1,1} to basis points of length lx
-%
-
-lx = size(Je,1);
-I = eye(lx);
+% Jer - interpolate from e to r
+% Jes - interpolate from e to s
 
 xv = [xrm([1,end]),xrp([1,end])]; % vertices
 yv = [yrm([1,end]),yrp([1,end])];
 
-xv = ABu(Je,Je,xv);
-yv = ABu(Je,Je,yv);
+xv = ABu(Jes,Jer,xv);
+yv = ABu(Jes,Jer,yv);
 
-x = ABu(Je,I,[xrm,xrp]) + ABu(I,Je,[xsm';xsp']) - xv;
-y = ABu(Je,I,[yrm,yrp]) + ABu(I,Je,[ysm';ysp']) - yv;
+x = ABu(Jes,Ix,[xrm,xrp]) + ABu(Iy,Jer,[xsm';xsp']) - xv;
+y = ABu(Jes,Ix,[yrm,yrp]) + ABu(Iy,Jer,[ysm';ysp']) - yv;
 
 %=============================================================
 if(0)
@@ -23,7 +20,7 @@ figure;
 fig=gcf;ax=gca;
 hold on;grid on;
 % title
-title(['',' Mesh',' lx = ',num2str(lx)],'fontsize',14);
+title(['Mesh'],'fontsize',14);
 % ax
 ax.FontSize=14;
 xlabel('$$X$$');
@@ -33,7 +30,7 @@ mesh(x,y,0*x)
 % color
 colormap([0,0,0])
 %------------------------------
-figname=['','mesh','lx',num2str(lx)];
+figname=['mesh'];
 saveas(fig,figname,'jpeg');
 %------------------------------
 end
