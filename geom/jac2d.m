@@ -6,7 +6,7 @@ xs = ABu(D,I,x);
 yr = ABu(I,D,y);
 ys = ABu(D,I,y);
 
-J    = xr.*ys - xs*yr;
+J    = xr.*ys - xs.*yr;
 Jinv = 1 ./ J;
 
 rx =  Jinv.*ys;

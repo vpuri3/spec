@@ -1,5 +1,8 @@
 %
-function [ux,uy] = grad2d(I,D,rx,ry,sx,sy,u);
+function [ux,uy] = grad2d(u,I,D,rx,ry,sx,sy);
+	
+	ur = ABu(I,D,u);
+	us = ABu(D,I,u);
 
-	ux = rx.*ABu(I,D,u) + sx.*ABu(D,I,u);
-	uy = ry.*ABu(I,D,u) + sy.*ABu(D,I,u);
+	ux = ur.*rx + us.*sx;
+	uy = ur.*ry + us.*sy;

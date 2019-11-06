@@ -2,7 +2,7 @@
 clear;
 format compact; format shorte;
 
-lx1 = 16;
+lx1 = 50;
 lxd = ceil(1.5*lx1); lxd=lx1;
 
 [zm1,wm1] = zwgll(lx1-1);
@@ -32,6 +32,15 @@ Imd = eye(lxd);
 % Jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Im1,Dm1);
 [Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Imd,Dmd);
+
+%----------------------------------------------------------------------
+% grad 2d check - problem with coordinate transformation
+%u = xm1;
+%[ux,uy] = grad2d(u,Im1,Dm1,rxm1,rym1,sxm1,sym1);
+%mesh(xm1,ym1,u );title('$$u $$'); pause
+%mesh(xm1,ym1,ux);title('$$ux$$'); pause
+%mesh(xm1,ym1,uy);title('$$uy$$');
+%----------------------------------------------------------------------
 
 % diag mass matrix
 Bm1 = Jm1.*(wm1*wm1');
