@@ -1,8 +1,5 @@
 %
 function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(z,ze)
-[z ,w ] = zwgll(lx-1);
-[ze,we] = zwgll(1);
-
 Je= interp_mat(z,ze);
 
 xsm = z*0.5;

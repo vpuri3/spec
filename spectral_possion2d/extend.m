@@ -1,4 +1,4 @@
 %
 function [w] = extend(u,Rx,Ry);
 
-w = Rx' * u * Ry;
+w = ABu(Ry',Rx',u);
