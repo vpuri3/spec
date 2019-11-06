@@ -9,9 +9,9 @@ ys = ABu(D,I,y);
 J    = xr.*ys - xs*yr;
 Jinv = 1 ./ J;
 
-rx = Jinv.*ys;
-ry =-Jinv.*xs;
-sx =-Jinv.*yr;
-sy = Jinv.*xr;
+rx =  Jinv.*ys;
+ry = -Jinv.*xs;
+sx = -Jinv.*yr;
+sy =  Jinv.*xr;
 
 end
