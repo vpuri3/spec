@@ -1,7 +1,7 @@
 function [uegy,uinf,time] = driver(Nx,Ny,T,ifadv);
 %
-% [ued,uid,td] = hw(60,20,1e2,0);
-% [uea,uia,ta] = hw(60,20,1e2,1);
+% [ued,uid,td] = driver(60,20,1e2,0);
+% [uea,uia,ta] = driver(60,20,1e2,1);
 %
 format compact; format shorte;
 
