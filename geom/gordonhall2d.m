@@ -13,13 +13,13 @@ yv = [yrm([1;end]),yrp([1;end])];
 xv = ABu(Jes,Jer,xv);
 yv = ABu(Jes,Jer,yv);
 
-x = ABu(Is,Jer,[xrm';xrp']) + ABu(Jes,Ir,[xsm,xsp]) - xv;
-y = ABu(Is,Jer,[yrm';yrp']) + ABu(Jes,Ir,[ysm,ysp]) - yv;
+x = ABu(Is,Jer,[xrm';xrp']) + ABu(Jes,Ir,[xsm,xsp]);% - xv;
+y = ABu(Is,Jer,[yrm';yrp']) + ABu(Jes,Ir,[ysm,ysp]);% - yv;
 
 %=============================================================
 if(1)
 %------------------------------
-figure;
+%figure;
 fig=gcf;ax=gca;
 hold on;grid on;
 % title
