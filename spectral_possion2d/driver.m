@@ -4,7 +4,7 @@ format compact; format shorte;
 %----------------------------------------------------------------------
 % todo
 %
-% inhomogeneous BC
+% inhom, periodic bc
 % advection
 %----------------------------------------------------------------------
 
@@ -17,7 +17,6 @@ lyd = ceil(1.5*ly1);
 [zsm1,wsm1] = zwgll(ly1-1);
 [zrmd,wrmd] = zwgll(lxd-1);    % dealias
 [zsmd,wsmd] = zwgll(lyd-1);
-[zme,wme]   = zwgll(1);        % linear interpolation
 
 Drm1 = dhat(zrm1);
 Dsm1 = dhat(zsm1);
@@ -29,20 +28,16 @@ Ism1 = eye(ly1);
 Irmd = eye(lxd);
 Ismd = eye(lyd);
 
-Jr1d = interp_mat(zrmd,zrm1); % from lx1 to lxd
+Jr1d = interp_mat(zrmd,zrm1); % lx1 to lxd
 Js1d = interp_mat(zsmd,zsm1);
-Jre1 = interp_mat(zrm1,zme);  % from e   to lx1
-Jse1 = interp_mat(zsm1,zme);
-Jred = interp_mat(zrmd,zme);  % from e   to lxd
-Jsed = interp_mat(zsmd,zme);
 
 %----------------------------------------------------------------------
 % deform geometry
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zrm1,zsm1,zme);
-[xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Irm1,Ism1,Jre1,Jse1);
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zrm1,zsm1);pause;
+[xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm1,zsm1);pause;
 
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zrmd,zsmd,zme);
-[xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Irmd,Ismd,Jred,Jsed);
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zrmd,zsmd);
+[xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
 
 % Jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
@@ -58,16 +53,17 @@ G11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
 G12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
 G22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
-% mask off dirichlet BC
-msk = zeros(lx1,ly1);
-msk(2:end-1,2:end-1) = 1;      % X: dir-dir, Y: dir-dir
-%msk(2:end-0,1:end-1) = 1;      % X: dir-neu, Y: neu-dir
-
 %----------------------------------------------------------------------
 % solution
 f  = sin(pi*xm1).*sin(pi*ym1);
-%f  = 1+0*xm1;
-%ue = 0.5*f/pi/pi;
+f  = 1+0*xm1;
+%ue = 
+
+% mask off dirichlet BC
+msk = zeros(lx1,ly1);
+msk(2:end-1,2:end-1) = 1;      % X: dir-dir, Y: dir-dir
+msk(1:end-1,2:end-1) = 1;      % X: neu-dir, Y: dir-dir
+%msk(2:end-0,1:end-1) = 1;      % X: dir-neu, Y: neu-dir
 
 %----------------------------------------------------------------------
 % RHS
@@ -76,9 +72,10 @@ b  = msk .* mass2d(Bmd,Jr1d,Js1d,f);
 %----------------------------------------------------------------------
 % solve
 
-ifcg=0;
+ifcg=1;
 if(ifcg)
 	[u,iter,r2] = cg_possion2d(b,0*b,1e-8,500,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22,msk);
+	['cg iter:',num2str(iter),', residual:',num2str(sqrt(r2))]
 else
 	Rx = Irm1(2:end-1,:);
 	Ry = Ism1(2:end-1,:);
