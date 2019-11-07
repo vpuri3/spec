@@ -1,5 +1,5 @@
 %
-function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = geom1(zr,zs)
+function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zr,zs)
 ze  = [-1;1];
 Jer = interp_mat(zr,ze); % ze to zr
 Jes = interp_mat(zs,ze);
@@ -18,7 +18,7 @@ xrm = -xrp;
 yrm =  yrp;
 
 if(0)
-	figure; hold on; grid on;
+	hold on; grid on;
 	plot(xsm,ysm,'ro-','DisplayName','s-minus');
 	plot(xsp,ysp,'rx-','DisplayName','s-plus ');
 	plot(xrm,yrm,'bo-','DisplayName','r-minus');

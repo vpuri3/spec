@@ -7,21 +7,20 @@ Jes = interp_mat(zs,ze);
 Ir  = eye(length(zr));
 Is  = eye(length(zs));
 
-xv = [xrm([1;end]),xrp([1;end])]; % vertices
-yv = [yrm([1;end]),yrp([1;end])];
-
+xv = [xrm([1,end])';xrp([1;end])']; % vertices
+yv = [yrm([1,end])';yrp([1;end])'];
 xv = ABu(Jes,Jer,xv);
 yv = ABu(Jes,Jer,yv);
 
-x = ABu(Is,Jer,[xrm';xrp']) + ABu(Jes,Ir,[xsm,xsp]);% - xv;
-y = ABu(Is,Jer,[yrm';yrp']) + ABu(Jes,Ir,[ysm,ysp]);% - yv;
+x = ABu(Is,Jer,[xrm';xrp']) + ABu(Jes,Ir,[xsm,xsp]) - xv;
+y = ABu(Is,Jer,[yrm';yrp']) + ABu(Jes,Ir,[ysm,ysp]) - yv;
 
 %=============================================================
-if(1)
+if(0)
 %------------------------------
 %figure;
 fig=gcf;ax=gca;
-hold on;grid on;
+hold off;grid on;
 % title
 title(['Mesh'],'fontsize',14);
 % ax
@@ -31,7 +30,8 @@ ylabel('$$Y$$');
 
 mesh(x,y,0*x)
 % color
-colormap([0,0,0])
+colormap([0,0,0]);
+view(2);
 %------------------------------
 figname=['mesh'];
 saveas(fig,figname,'jpeg');
