@@ -1,20 +1,23 @@
 %
-function [x,y] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,Ix,Iy,Jer,Jes)
+function [x,y] =  gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zr,zs)
 %
-% Jer - interpolate from e to r
-% Jes - interpolate from e to s
+ze = [-1;1];
+Jer = interp_mat(zr,ze);
+Jes = interp_mat(zs,ze);
+Ir  = eye(length(zr));
+Is  = eye(length(zs));
 
-xv = [xrm([1,end]),xrp([1,end])]; % vertices
-yv = [yrm([1,end]),yrp([1,end])];
+xv = [xrm([1;end]),xrp([1;end])]; % vertices
+yv = [yrm([1;end]),yrp([1;end])];
 
 xv = ABu(Jes,Jer,xv);
 yv = ABu(Jes,Jer,yv);
 
-x = ABu(Jes,Ix,[xrm,xrp]) + ABu(Iy,Jer,[xsm';xsp']) - xv;
-y = ABu(Jes,Ix,[yrm,yrp]) + ABu(Iy,Jer,[ysm';ysp']) - yv;
+x = ABu(Is,Jer,[xrm';xrp']) + ABu(Jes,Ir,[xsm,xsp]) - xv;
+y = ABu(Is,Jer,[yrm';yrp']) + ABu(Jes,Ir,[ysm,ysp]) - yv;
 
 %=============================================================
-if(0)
+if(1)
 %------------------------------
 figure;
 fig=gcf;ax=gca;
