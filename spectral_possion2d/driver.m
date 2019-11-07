@@ -1,15 +1,18 @@
 %
-clf;
+clf;clear;
 format compact; format shorte;
 %----------------------------------------------------------------------
 %
-% solves -\del^2 u = f
+% solves \del^2 u + q*u + \vect{c}\dot\grad{u}  = f
 %        + Dirichlet/Neumann BC
+%
+% todo
+%     get restriction from 
 %
 %----------------------------------------------------------------------
 
-nx1 = 8;
-ny1 = 16;
+nx1 = 32;
+ny1 = 3;
 nxd = ceil(1.5*nx1);
 nyd = ceil(1.5*ny1);
 
@@ -39,10 +42,12 @@ Js1d = interp_mat(zsmd,zsm1);
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrmd,zsmd);
 [xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
 
+[xm1,ym1] = ndgrid(zrm1,zsm1);
+[xmd,ymd] = ndgrid(zrmd,zsmd);
+%----------------------------------------------------------------------
 % Jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
 [Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Irmd,Ismd,Drmd,Dsmd);
-%----------------------------------------------------------------------
 
 % diag mass matrix
 Bm1 = Jm1.*(wrm1*wsm1');
@@ -55,24 +60,28 @@ G22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
 %----------------------------------------------------------------------
 % data
-f  = sin(pi*xm1).*sin(pi*ym1);
-f  = 1+0*xm1;
+q = 0+0*xm1;
+cx= 100+0*xm1;
+cy= 0+0*xm1;
+f = sin(pi*xm1).*sin(pi*ym1);
+f = 1+0*xm1;
 %ue = 
 
 % mask off dirichlet BC
 msk = zeros(nx1,ny1);
-msk(2:end-1,2:end-0) = 1;      % X: neu-dir, Y: dir-dir
+msk(2:end-1,1:end-0) = 1;      % X: neu-dir, Y: dir-dir
 
 % dirichlet BC
-ub = 0+0.05*xm1;
+ub = 0+0.00*xm1;
 ub = (1-msk) .* ub;
 
 %----------------------------------------------------------------------
 % RHS
-b  = mass2d(Bmd,Jr1d,Js1d,f);
-b  = b - laplace2d(ub,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22);
+b = mass2d(Bmd,Jr1d,Js1d,f);
+b = b - laplace2d(ub,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22); % dirichlet bc
+b = b - ub.*q;
 
-b  = msk .* b;
+b = msk .* b;
 %----------------------------------------------------------------------
 % solve
 
@@ -81,25 +90,47 @@ if(ifcg)
 	[uh,iter,r2] = cg_possion2d(b,0*b,1e-8,500,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22,msk);
 	['cg iter:',num2str(iter),', residual:',num2str(sqrt(r2))]
 else
-	Rx = Irm1(2:end-1,:);
-	Ry = Ism1(2:end-0,:);
+	% data
+	q  = reshape(q, [nx1*ny1,1]); Q = sparse(diag(q ));
+	cx = reshape(cx,[nx1*ny1,1]);
+	cy = reshape(cy,[nx1*ny1,1]);
+	f  = reshape(f, [nx1*ny1,1]);
+	b  = reshape(b, [nx1*ny1,1]); % rhs
+
+	% restriction, interpolation
+	Rx = Irm1(2:end-1,:); % should get from mask
+	Ry = Ism1(1:end-0,:);
 	R  = sparse(kron(Ry,Rx));
 	J  = sparse(kron(Js1d,Jr1d));
-	
+
+	% mass matrices
+	B  = sparse(diag(reshape(Bm1,[nx1*ny1,1])));
+	Bd = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
+
+	% laplace op
 	G11=sparse(diag(reshape(G11,[nxd*nyd,1]))); G11 = J'*G11*J;
 	G12=sparse(diag(reshape(G12,[nxd*nyd,1]))); G12 = J'*G12*J;
 	G22=sparse(diag(reshape(G22,[nxd*nyd,1]))); G22 = J'*G22*J;
 	G  = [G11 G12; G12 G22];
-	
 	Dr = kron(Ism1,Drm1);
 	Ds = kron(Dsm1,Irm1);
 	D  = [Dr;Ds];
-	
 	Ab = D'*G*D;
-	A  = R*Ab*R';
-	
-	b  = R*reshape(b,[nx1*ny1,1]);
-	
+
+	% advection op
+	RRX=sparse(diag(reshape(rxm1,[nx1*ny1,1])));
+	RRY=sparse(diag(reshape(rym1,[nx1*ny1,1])));
+	SSX=sparse(diag(reshape(sxm1,[nx1*ny1,1])));
+	SSY=sparse(diag(reshape(sym1,[nx1*ny1,1])));
+	Cxd=sparse(diag(J*cx));
+	Cyd=sparse(diag(J*cy));
+	Dx = RRX*Dr + SSX*Ds;
+	Dy = RRY*Dr + SSY*Ds;
+	C  = J'*Bd*(Cxd*J*Dx + Cyd*J*Dy);
+
+	% system
+	A  = R*(Ab + Q*B + C)*R';
+	b  = R*b;
 	uh = A \ b;
 	uh = R'*uh;
 	uh = reshape(uh,[nx1,ny1]);
