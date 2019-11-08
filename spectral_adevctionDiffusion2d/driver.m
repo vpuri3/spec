@@ -3,22 +3,24 @@ clf;clear;
 format compact; format shorte;
 %----------------------------------------------------------------------
 %
-% solves \del^2 u + q*u + \vect{c}\dot\grad{u}  = f
-%        + Dirichlet/Neumann BC
+% solves steady state advection-diffusion equation
+%
+%	nu*\del^2 u + q*u + \vect{c}\dot\grad{u}  = f
+%   + Dirichlet/Neumann BC
 %
 % todo
-%     get restriction from 
+%     -fast diagonalization
 %
 %----------------------------------------------------------------------
 
-nx1 = 32;
-ny1 = 3;
+nx1 = 16;
+ny1 = 16;
 nxd = ceil(1.5*nx1);
 nyd = ceil(1.5*ny1);
 
 [zrm1,wrm1] = zwgll(nx1-1);
 [zsm1,wsm1] = zwgll(ny1-1);
-[zrmd,wrmd] = zwgll(nxd-1);    % dealias
+[zrmd,wrmd] = zwgll(nxd-1);
 [zsmd,wsmd] = zwgll(nyd-1);
 
 Drm1 = dhat(zrm1);
@@ -45,51 +47,72 @@ Js1d = interp_mat(zsmd,zsm1);
 [xm1,ym1] = ndgrid(zrm1,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 %----------------------------------------------------------------------
-% Jacobian
+% jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
 [Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Irmd,Ismd,Drmd,Dsmd);
 
-% diag mass matrix
+% mass
 Bm1 = Jm1.*(wrm1*wsm1');
 Bmd = Jmd.*(wrmd*wsmd');
 
-% laplace operator
+% laplace operator setup
 G11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
 G12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
 G22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
+% fast diagonalization setup
+Brm1 = diag(wrm1); % scaling
+Bsm1 = diag(wsm1);
+Arm1 = Drm1'*Brm1*Drm1;
+Asm1 = Dsm1'*Bsm1*Dsm1;
+[Sr,Lr] = eig(Arm1,Brm1); % zero e-value associated with constant e-function
+[Ss,Ls] = eig(Asm1,Bsm1);
+Lfdm = diag(Lr) + diag(Ls)';
+
 %----------------------------------------------------------------------
 % data
+nu= 1e-1;
 q = 0+0*xm1;
-cx= 100+0*xm1;
+cx= 0+0*xm1;
 cy= 0+0*xm1;
 f = sin(pi*xm1).*sin(pi*ym1);
 f = 1+0*xm1;
 %ue = 
 
-% mask off dirichlet BC
-msk = zeros(nx1,ny1);
-msk(2:end-1,1:end-0) = 1;      % X: neu-dir, Y: dir-dir
-
 % dirichlet BC
-ub = 0+0.00*xm1;
+ub = 0-0.00*xm1;
+
+% mask off dirichlet BC
+Rx = Irm1(2:end-1,:);   % dir-dir
+Ry = Ism1(1:end-0,:);   % neu-neu
+msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
+
 ub = (1-msk) .* ub;
 
 %----------------------------------------------------------------------
 % RHS
 b = mass2d(Bmd,Jr1d,Js1d,f);
-b = b - laplace2d(ub,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22); % dirichlet bc
+b = b - nu*laplace2d(ub,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22); % dirichlet bc
 b = b - ub.*q;
+b = b - advect2d(ub,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 b = msk .* b;
 %----------------------------------------------------------------------
 % solve
 
-ifcg=0;
-if(ifcg)
+solve=1;
+
+if(solve==0) % CG possion
+
 	[uh,iter,r2] = cg_possion2d(b,0*b,1e-8,500,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22,msk);
 	['cg iter:',num2str(iter),', residual:',num2str(sqrt(r2))]
-else
+
+elseif(solve==1) % FDM possion
+
+	uh = msk .* (1/nu) * fdm(b,Bm1,Sr,Ss,Lfdm);
+
+elseif(solve==2) % direct advection-diffusion
+
 	% data
 	q  = reshape(q, [nx1*ny1,1]); Q = sparse(diag(q ));
 	cx = reshape(cx,[nx1*ny1,1]);
@@ -97,13 +120,9 @@ else
 	f  = reshape(f, [nx1*ny1,1]);
 	b  = reshape(b, [nx1*ny1,1]); % rhs
 
-	% restriction, interpolation
-	Rx = Irm1(2:end-1,:); % should get from mask
-	Ry = Ism1(1:end-0,:);
+	% operators
 	R  = sparse(kron(Ry,Rx));
 	J  = sparse(kron(Js1d,Jr1d));
-
-	% mass matrices
 	B  = sparse(diag(reshape(Bm1,[nx1*ny1,1])));
 	Bd = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
 
@@ -115,7 +134,7 @@ else
 	Dr = kron(Ism1,Drm1);
 	Ds = kron(Dsm1,Irm1);
 	D  = [Dr;Ds];
-	Ab = D'*G*D;
+	A  = D'*G*D;
 
 	% advection op
 	RRX=sparse(diag(reshape(rxm1,[nx1*ny1,1])));
@@ -129,9 +148,9 @@ else
 	C  = J'*Bd*(Cxd*J*Dx + Cyd*J*Dy);
 
 	% system
-	A  = R*(Ab + Q*B + C)*R';
+	S  = R*(nu*A  + Q*B + C)*R';
 	b  = R*b;
-	uh = A \ b;
+	uh = S \ b;
 	uh = R'*uh;
 	uh = reshape(uh,[nx1,ny1]);
 end

@@ -1,7 +1,7 @@
 %
 %   (\vect{v},\vect{c} \cdot \grad(u))
 %
-function [w] = advec(u,cx,cy,Ir,Is,Jr,Js,Dr,Ds,rx,ry,sx,sy);
+function [w] = advect2d(u,cx,cy,Bmd,Ir,Is,Jr,Js,Dr,Ds,rx,ry,sx,sy);
 
 [ux,uy] = grad2d(u,Ir,Is,Dr,Ds,rx,ry,sx,sy);
 
