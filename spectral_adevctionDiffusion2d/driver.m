@@ -1,5 +1,5 @@
 %
-clf;clear;
+clf;
 format compact; format shorte;
 %----------------------------------------------------------------------
 %
@@ -38,6 +38,7 @@ Js1d = interp_mat(zsmd,zsm1);
 
 %----------------------------------------------------------------------
 % deform geometry
+
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrm1,zsm1);
 [xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm1,zsm1);
 
@@ -47,6 +48,31 @@ Js1d = interp_mat(zsmd,zsm1);
 [xm1,ym1] = ndgrid(zrm1,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 %----------------------------------------------------------------------
+% data
+
+solve=2; % 0: CG, 1: FDM, 2: direct
+
+nu= 1e-0;
+q = 0+0*xm1;
+cx= 0+0*xm1;
+cy= 0+0*xm1;
+f = sin(pi*xm1).*sin(pi*ym1);
+f = 1+0*xm1;
+%ue = 
+
+% dirichlet BC
+ub = 0-0*xm1;
+
+% mask
+Rx = Irm1(2:end-1,:);   % dir-dir
+Ry = Ism1(2:end-1,:);   % neu-neu
+msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
+
+ub = (1-msk) .* ub; % step function on dirichlet BC
+
+%----------------------------------------------------------------------
+% setup
+
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
 [Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Irmd,Ismd,Drmd,Dsmd);
@@ -61,37 +87,25 @@ G12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
 G22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
 % fast diagonalization setup
-Brm1 = diag(wrm1); % scaling
-Bsm1 = diag(wsm1);
-Arm1 = Drm1'*Brm1*Drm1;
-Asm1 = Dsm1'*Bsm1*Dsm1;
-[Sr,Lr] = eig(Arm1,Brm1); % zero e-value associated with constant e-function
-[Ss,Ls] = eig(Asm1,Bsm1);
+% scaling - can likely get away with single .* Jm1
+Br = diag(wrm1);
+Bs = diag(wsm1);
+Ar = Drm1'*Br*Drm1;
+As = Dsm1'*Bs*Dsm1;
+
+Ar = ABu(Rx,Rx,Ar); % restrict
+As = ABu(Ry,Ry,As);
+Br = ABu(Rx,Rx,Br);
+Bs = ABu(Ry,Ry,Bs);
+[Sr,Lr] = eig(Ar,Br);
+[Ss,Ls] = eig(As,Bs);
+for j=1:length(Sr); Sr(:,j) = Sr(:,j)/sqrt(Sr(:,j)'*Sr(:,j)); end; % scaling err
+for j=1:length(Sr); Ss(:,j) = Ss(:,j)/sqrt(Ss(:,j)'*Ss(:,j)); end;
 Lfdm = diag(Lr) + diag(Ls)';
 
 %----------------------------------------------------------------------
-% data
-nu= 1e-1;
-q = 0+0*xm1;
-cx= 0+0*xm1;
-cy= 0+0*xm1;
-f = sin(pi*xm1).*sin(pi*ym1);
-f = 1+0*xm1;
-%ue = 
-
-% dirichlet BC
-ub = 0-0.00*xm1;
-
-% mask off dirichlet BC
-Rx = Irm1(2:end-1,:);   % dir-dir
-Ry = Ism1(1:end-0,:);   % neu-neu
-msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
-
-ub = (1-msk) .* ub;
-
-%----------------------------------------------------------------------
 % RHS
-b = mass2d(Bmd,Jr1d,Js1d,f);
+b = mass2d(Bmd,Jr1d,Js1d,f);							  % forcing
 b = b - nu*laplace2d(ub,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22); % dirichlet bc
 b = b - ub.*q;
 b = b - advect2d(ub,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -100,8 +114,6 @@ b = msk .* b;
 %----------------------------------------------------------------------
 % solve
 
-solve=1;
-
 if(solve==0) % CG possion
 
 	[uh,iter,r2] = cg_possion2d(b,0*b,1e-8,500,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22,msk);
@@ -109,7 +121,7 @@ if(solve==0) % CG possion
 
 elseif(solve==1) % FDM possion
 
-	uh = msk .* (1/nu) * fdm(b,Bm1,Sr,Ss,Lfdm);
+	uh = (1/nu) * fdm(b,Bm1,Sr,Ss,Rx,Ry,Lfdm);
 
 elseif(solve==2) % direct advection-diffusion
 
@@ -153,6 +165,7 @@ elseif(solve==2) % direct advection-diffusion
 	uh = S \ b;
 	uh = R'*uh;
 	uh = reshape(uh,[nx1,ny1]);
+
 end
 %----------------------------------------------------------------------
 % BC
@@ -162,3 +175,5 @@ u = uh + ub;
 %----------------------------------------------------------------------
 % plt
 mesh(xm1,ym1,u);
+xlabel('$$X$$');
+ylabel('$$Y$$');
