@@ -3,7 +3,7 @@ clf;
 format compact; format shorte;
 %----------------------------------------------------------------------
 %
-% solves steady state advection-diffusion equation
+% steady state advection-diffusion equation
 %
 %	nu*\del^2 u + q*u + \vect{c}\dot\grad{u}  = f
 %   + Dirichlet/Neumann BC
@@ -50,7 +50,7 @@ Js1d = interp_mat(zsmd,zsm1);
 %----------------------------------------------------------------------
 % data
 
-solve=2; % 0: CG, 1: FDM, 2: direct
+solve=1; % 0: CG (possion), 1: FDM (possion), 2: direct (advection-diffusion)
 
 nu= 1e-0;
 q = 0+0*xm1;
@@ -86,21 +86,26 @@ G11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
 G12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
 G22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
-% fast diagonalization setup
-% scaling - can likely get away with single .* Jm1
-Br = diag(wrm1);
-Bs = diag(wsm1);
-Ar = Drm1'*Br*Drm1;
-As = Dsm1'*Bs*Dsm1;
+% FDM - fast diagonalization setup
+Lx = max(max(xm1))-min(min(xm1));
+Ly = max(max(ym1))-min(min(ym1));
 
-Ar = ABu(Rx,Rx,Ar); % restrict
-As = ABu(Ry,Ry,As);
+Br = (Lx/2)*diag(wrm1);
+Bs = (Ly/2)*diag(wsm1);
+Dr = (2/Lx)*Drm1;
+Ds = (2/Ly)*Dsm1;
+Ar = Dr'*Br*Dr;
+As = Ds'*Bs*Ds;
+
 Br = ABu(Rx,Rx,Br);
 Bs = ABu(Ry,Ry,Bs);
-[Sr,Lr] = eig(Ar,Br);
-[Ss,Ls] = eig(As,Bs);
-for j=1:length(Sr); Sr(:,j) = Sr(:,j)/sqrt(Sr(:,j)'*Sr(:,j)); end; % scaling err
-for j=1:length(Sr); Ss(:,j) = Ss(:,j)/sqrt(Ss(:,j)'*Ss(:,j)); end;
+Ar = ABu(Rx,Rx,Ar);
+As = ABu(Ry,Ry,As);
+
+[Sr,Lr] = eig(Ar,Br); Sri = inv(Sr);
+[Ss,Ls] = eig(As,Bs); Ssi = inv(Ss);
+%for j=1:length(Sr); Sr(:,j) = Sr(:,j)/sqrt(Sr(:,j)'*Sr(:,j)); end; % scaling err
+%for j=1:length(Sr); Ss(:,j) = Ss(:,j)/sqrt(Ss(:,j)'*Ss(:,j)); end;
 Lfdm = diag(Lr) + diag(Ls)';
 
 %----------------------------------------------------------------------
@@ -121,7 +126,7 @@ if(solve==0) % CG possion
 
 elseif(solve==1) % FDM possion
 
-	uh = (1/nu) * fdm(b,Bm1,Sr,Ss,Rx,Ry,Lfdm);
+	uh = (1/nu) * fdm(b,Bm1,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdm);
 
 elseif(solve==2) % direct advection-diffusion
 
