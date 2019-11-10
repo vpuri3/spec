@@ -1,16 +1,25 @@
 function [a,b] = bdfext3(t)
 %
-%	t - sequence of time-steps (lastest to oldest)
+%	t - array of time-steps (lastest to oldest)
 %
-%	a(k  ,1)
-%	b(k+1,1)
+%	a(3  ,1)
+%	b(3+1,1)
 %
 %
-    k = length(t)-1;
+	[a,b] = bdfextk(t);
+    k = length(a);     % order
 
-	tcurr = t(1);
-	tprev = t(2:end);
-	a = interp_mat(tcurr,tprev)';
+	if(k<3)
 
-	D = deriv_mat(t);
-	b = D(1,:)';
+		a = [a;zeros(3-k,1)];
+		b = [b;zeros(3-k,1)];
+
+	else
+
+		a = a(1:3);
+		b = b(1:4);
+
+	end
+
+end
+
