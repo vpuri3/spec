@@ -11,9 +11,9 @@ function driver
 %
 %----------------------------------------------------------------------
 %
-%	todo
+%	/todo
 %	- make notation for viscous solve clearer
-%	- periodic BC with Restriction matrices, and msk
+%	- adjust mask to account for periodic BC
 %
 %----------------------------------------------------------------------
 
@@ -57,7 +57,7 @@ Js1d = interp_mat(zsmd,zsm1);
 %----------------------------------------------------------------------
 % data
 
-slv=0;                           % solver --> 0: CG, 1: FDM, 2: direct
+slv=2;                           % solver --> 0: CG, 1: FDM, 2: direct
 
 nu= 1e-0;                        % viscosity
 u = 0+0*xm1;                     % initial condition
@@ -66,12 +66,14 @@ cy= 0+0*xm1;
 f = sin(pi*xm1).*sin(pi*ym1);    % forcing
 f = 1+0*xm1;
 
-ub = u; 					     % dirichlet BC
+% BC
+ub = u; 					     % dirichlet data
+ifXperiodic=1; % adjust mask accordingly
 
 ue = 0.5/pi/pi*f; 			     % exact solution
 
-Rx = Irm1(1:end-1,:); Rx(end,end)=0; Rx(1,end)=1;  % periodic
 Rx = Ism1(2:end-1,:);                              % dir-dir
+Rx = Irm1(1:end-1,:); Rx(end,end)=0; Rx(1,end)=1;  % periodic
 Ry = Ism1(2:end-1,:);                              % dir-dir
 
 % time
@@ -171,7 +173,7 @@ end
 function [ulhs] =  lhs_op(vlhs)
 	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
-	ulhs = msk .* ulhs;
+	ulhs = msk .* ulhs; % todo move restriction to elsewhere
 end
 %----------------------------------------------------------------------
 % BDF - explicit OP
@@ -252,6 +254,7 @@ function [uslv] = solve(rslv)
 	
 	elseif(slv==1) % FDM
 	
+		rslv = msk .* rslv;
 		uslv = (1/nu) * fdm(rslv,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
 	
 	elseif(slv==2) % direct solve
@@ -261,9 +264,9 @@ function [uslv] = solve(rslv)
 		% system
 		S    = R*(nu*A + b(1)*B)*R';
 		rslv = R*rslv;
-		uslv = S \ rslv;
+		uslv = S \rslv;
 		uslv = R'*uslv;
-		rslv = R'*rslv ;
+		rslv = R'*rslv;
 
 		uslv = reshape(uslv,[nx1,ny1]);
 		rslv = reshape(rslv,[nx1,ny1]);
