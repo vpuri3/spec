@@ -12,8 +12,8 @@ function driver
 %----------------------------------------------------------------------
 %
 %	/todo
-%	- make notation for viscous solve clearer
 %	- adjust mask to account for periodic BC
+%	- time stepper blowing up
 %
 %----------------------------------------------------------------------
 
@@ -59,26 +59,23 @@ Js1d = interp_mat(zsmd,zsm1);
 
 slv=2;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu= 1e-0;                        % viscosity
-u = 0+0*xm1;                     % initial condition
-cx= 0+0*xm1;                     % advecting field
+nu= 0e-0;
+u = sin(pi*xm1).*sin(pi*ym1);
+cx= 1+0*xm1;
 cy= 0+0*xm1;
-f = sin(pi*xm1).*sin(pi*ym1);    % forcing
-f = 1+0*xm1;
+f = 0+0*xm1;
 
 % BC
 ub = u; 					     % dirichlet data
-ifXperiodic=1; % adjust mask accordingly
+ifXperiodic=1;
 
-ue = 0.5/pi/pi*f; 			     % exact solution
-
-Rx = Ism1(2:end-1,:);                              % dir-dir
 Rx = Irm1(1:end-1,:); Rx(end,end)=0; Rx(1,end)=1;  % periodic
+Rx = Ism1(2:end-1,:);                              % dir-dir
 Ry = Ism1(2:end-1,:);                              % dir-dir
 
-% time
-T   = 0;                         % steady solve if T == 0
-CFL = 0.5;
+% time (steady state if T=0)
+T   = 2.0;
+CFL = 0.1;
 
 %----------------------------------------------------------------------
 % setup
@@ -131,7 +128,7 @@ if(slv==1) % fast diagonalization setup
 	
 	[Sr,Lr] = eig(Ar,Br); Sri = inv(Sr);
 	[Ss,Ls] = eig(As,Bs); Ssi = inv(Ss);
-	Lfdm = diag(Lr) + diag(Ls)';
+	Lfdm = nu * (diag(Lr) + diag(Ls)');
 	Bm1i = 1 ./ Bm1;
 
 elseif(slv==2) % exact solve setup
@@ -165,24 +162,10 @@ elseif(slv==2) % exact solve setup
 	Dy = RRY*Dr + SSY*Ds;
 	C  = J'*Bd*(Cxd*J*Dx + Cyd*J*Dy);
 
+	e = eig(C); plot(real(e),imag(e),'o');pause;
+
 end
 
-%----------------------------------------------------------------------
-% BDF - implicit OP
-
-function [ulhs] =  lhs_op(vlhs)
-	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
-	ulhs = msk .* ulhs; % todo move restriction to elsewhere
-end
-%----------------------------------------------------------------------
-% BDF - explicit OP
-
-function [urhs] = rhs_op(vrhs)
-	urhs = -advect2d(vrhs,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	urhs = urhs + mass2d(Bmd,Jr1d,Js1d,f); % forcing
-	urhs = urhs - lhs_op(ub);              % dirichlet BC
-end
 %----------------------------------------------------------------------
 % time advance
 
@@ -195,11 +178,9 @@ ylabel('$$y$$');
 t0 = 0;
 t1 = 0;
 t2 = 0;
-t3 = 0;
 u0 = u*0;
 u1 = u0;
 u2 = u0;
-u3 = u0;
 f1 = u0;
 f2 = u0;
 
@@ -222,18 +203,12 @@ for it=1:nt
 	rhs = a(1)*f1 +a(2)*f2 +a(3)*f3 - (b(2)*u1+b(3)*u2+b(4)*u3);
 	rhs = msk .* rhs;
 
-	% solve
-	uh = solve(rhs);
+	% viscous solve
+	uh = visc_slv(rhs);
 
 	u  = uh + ub;
 
-	if(mod(it,0.1*nt)==0);
-		hold off;
-		mesh(xm1,ym1,u); title(['t=',num2str(t)]);
-		xlabel('$$x$$');
-		ylabel('$$y$$');
-		pause;
-	end
+	mesh(xm1,ym1,u); title(['t ',num2str(t),', step ',num2str(it)]); pause;
 
 end
 %----------------------------------------------------------------------
@@ -244,9 +219,10 @@ end
 %ylabel('$$y$$');
 
 %----------------------------------------------------------------------
-% solve
+% viscous solve
 
-function [uslv] = solve(rslv)
+% wrapper
+function [uslv] = visc_slv(rslv)
 
 	if(slv==0) % CG
 	
@@ -255,27 +231,41 @@ function [uslv] = solve(rslv)
 	elseif(slv==1) % FDM
 	
 		rslv = msk .* rslv;
-		uslv = (1/nu) * fdm(rslv,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
+		uslv = fdm(rslv,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
 	
 	elseif(slv==2) % direct solve
 	
 		rslv = reshape(rslv,[nx1*ny1,1]);
 
-		% system
-		S    = R*(nu*A + b(1)*B)*R';
-		rslv = R*rslv;
+		S    = R *(nu*A + b(1)*B)*R';
+		rslv = R *rslv;
 		uslv = S \rslv;
 		uslv = R'*uslv;
 		rslv = R'*rslv;
-
+		
 		uslv = reshape(uslv,[nx1,ny1]);
 		rslv = reshape(rslv,[nx1,ny1]);
 	
 	end
 
 end
-%----------------------------------------------------------------------
+
+% BDF - implicit OP
+function [ulhs] =  lhs_op(vlhs)
+	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
+	ulhs = msk .* ulhs; % todo move restriction to elsewhere
+end
+
+% BDF - explicit OP
+function [urhs] = rhs_op(vrhs)
+	urhs = -advect2d(vrhs,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	urhs = urhs + mass2d(Bmd,Jr1d,Js1d,f); % forcing
+	urhs = urhs - lhs_op(ub);              % dirichlet BC
+end
+
 % Conjugate Gradient
+%
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
 function [x,k,rsqnew] = cg(b,x0,tol,maxiter);
