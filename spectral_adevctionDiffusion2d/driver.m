@@ -2,13 +2,20 @@
 %
 %	Driver function for advection diffusion equation
 %
-%	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u + q*u 
+%	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
 %
 %   + Dirichlet/Neumann BC
 %
 %======================================================================
 function driver
 %
+%----------------------------------------------------------------------
+%
+%	todo
+%	- make notation for viscous solve clearer
+%	- periodic BC with Restriction matrices, and msk
+%
+%----------------------------------------------------------------------
 
 clf; format compact; format shorte;
 
@@ -50,10 +57,10 @@ Js1d = interp_mat(zsmd,zsm1);
 %----------------------------------------------------------------------
 % data
 
-slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
+slv=0;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu= 1e-1;                        % viscosity
-u = sin(pi*xm1).*sin(pi*ym1);    % initial condition
+nu= 1e-0;                        % viscosity
+u = 0+0*xm1;                     % initial condition
 cx= 0+0*xm1;                     % advecting field
 cy= 0+0*xm1;
 f = sin(pi*xm1).*sin(pi*ym1);    % forcing
@@ -61,23 +68,28 @@ f = 1+0*xm1;
 
 ub = u; 					     % dirichlet BC
 
-%Rx = Irm1(1:end-1,:); Rx(end,1)=1;  % periodic
-Rx = Irm1(2:end-1,:);                % dir-dir
-Ry = Ism1(2:end-1,:);                % dir-dir
+ue = 0.5/pi/pi*f; 			     % exact solution
+
+Rx = Irm1(1:end-1,:); Rx(end,end)=0; Rx(1,end)=1;  % periodic
+Rx = Ism1(2:end-1,:);                              % dir-dir
+Ry = Ism1(2:end-1,:);                              % dir-dir
+
 % time
-T   = 0; % steady state solve if T == 0
+T   = 0;                         % steady solve if T == 0
 CFL = 0.5;
 
 %----------------------------------------------------------------------
 % setup
 
 % time stepper
-dx = min(min(xm1));
+dx = min(min(diff(xm1)));
 dt = dx*CFL/1;
-nt = floor(T/dt);
+nt = ceil(T/dt);
 dt = T/nt;
 
-% BDFk-EXTk setup
+if(T==0); nt=1;dt=0; end; % steady
+
+% BDF3-EXT3
 a = zeros(3,1);
 b = zeros(4,1);
 
@@ -89,13 +101,14 @@ b = zeros(4,1);
 Bm1 = Jm1.*(wrm1*wsm1');
 Bmd = Jmd.*(wrmd*wsmd');
 
-% mask
+% mask off dirichlet BC
 msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
+ub  = (1-msk) .* ub;
 
 % laplace operator setup
-G11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
-G12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
-G22 = Bmd .* (sxmd.*sxmd + symd.*symd);
+g11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
+g12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
+g22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
 if(slv==1) % fast diagonalization setup
 
@@ -128,9 +141,9 @@ elseif(slv==2) % exact solve setup
 	Bd = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
 
 	% laplace op
-	G11=sparse(diag(reshape(G11,[nxd*nyd,1]))); G11 = J'*G11*J;
-	G12=sparse(diag(reshape(G12,[nxd*nyd,1]))); G12 = J'*G12*J;
-	G22=sparse(diag(reshape(G22,[nxd*nyd,1]))); G22 = J'*G22*J;
+	G11=sparse(diag(reshape(g11,[nxd*nyd,1]))); G11 = J'*G11*J;
+	G12=sparse(diag(reshape(g12,[nxd*nyd,1]))); G12 = J'*G12*J;
+	G22=sparse(diag(reshape(g22,[nxd*nyd,1]))); G22 = J'*G22*J;
 	G  = [G11 G12; G12 G22];
 	Dr = kron(Ism1,Drm1);
 	Ds = kron(Dsm1,Irm1);
@@ -153,14 +166,15 @@ elseif(slv==2) % exact solve setup
 end
 
 %----------------------------------------------------------------------
-% LHS
+% BDF - implicit OP
 
 function [ulhs] =  lhs_op(vlhs)
-	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,G11,G12,G22);
-	ulhs = ulhs + vlhs.*b(1);
+	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
+	ulhs = msk .* ulhs;
 end
 %----------------------------------------------------------------------
-% RHS
+% BDF - explicit OP
 
 function [urhs] = rhs_op(vrhs)
 	urhs = -advect2d(vrhs,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -170,11 +184,16 @@ end
 %----------------------------------------------------------------------
 % time advance
 
-mesh(xm1,ym1,u);
+t = 0;
+
+mesh(xm1,ym1,u); title(['IC t=',num2str(t)]);pause
 xlabel('$$x$$');
 ylabel('$$y$$');
 
-t  = 0;
+t0 = 0;
+t1 = 0;
+t2 = 0;
+t3 = 0;
 u0 = u*0;
 u1 = u0;
 u2 = u0;
@@ -182,74 +201,80 @@ u3 = u0;
 f1 = u0;
 f2 = u0;
 
-for it=0:nt-1
+for it=1:nt
 
-	% update time
+	% update histories
+	t3=t2; t2=t1; t1 = t;
+	u3=u2; u2=u1; u1 = u;
+	f3=f2; f2=f1; f1 = rhs_op(u);
+
 	t = t + dt;
 
 	if(it<=3)
-		[a,b] = bdfex3(i,dt);
-		Lfdmi = 1 ./ (b(1) + Lfdm);
+		[a,b] = bdfext3([t t1 t2 t3]);
+		if(T  ==0) a(1)=1; b=0*b;              end; % steady
+		if(slv==1) Lfdmi = 1 ./ (b(1) + Lfdm); end; % FDM
 	end;
 	
-	% update histories
-	u3=u2; u2=u1; u1 = u;
-	f3=f2; f2=f1; f1 = rhs_op(u); % current u
-
 	% form BDF rhs
-	r  = a(1)*f1 +a(2)*f2 +a(3)*f3 - (b(2)*u1+b(3)*u2+b(4)*u3);
-	r  = msk .* r;
+	rhs = a(1)*f1 +a(2)*f2 +a(3)*f3 - (b(2)*u1+b(3)*u2+b(4)*u3);
+	rhs = msk .* rhs;
 
 	% solve
-	uh = solve(r);
+	uh = solve(rhs);
 
 	u  = uh + ub;
 
 	if(mod(it,0.1*nt)==0);
 		hold off;
-		mesh(xm1,ym1,u); title(['t=',num2str(t)]);pause(0.05);
+		mesh(xm1,ym1,u); title(['t=',num2str(t)]);
+		xlabel('$$x$$');
+		ylabel('$$y$$');
+		pause;
 	end
 
 end
 %----------------------------------------------------------------------
+% post process
+
+%mesh(xm1,ym1,u-ue);
+%xlabel('$$x$$');
+%ylabel('$$y$$');
+
+%----------------------------------------------------------------------
 % solve
 
-function [uslv] = solve(rhs)
+function [uslv] = solve(rslv)
 
 	if(slv==0) % CG
 	
-		[uslv,iter,r2] = cg(rhs,0*r,1e-8,1e3);
-		['cg iter:',num2str(iter),', residual:',num2str(sqrt(r2))]
+		uslv = cg(rslv,0*rslv,1e-8,1e3);
 	
 	elseif(slv==1) % FDM
 	
-		uslv = (1/nu) * fdm(rhs,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
+		uslv = (1/nu) * fdm(rslv,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
 	
 	elseif(slv==2) % direct solve
 	
-		rhs = reshape(rhs,[nx1*ny1,1]); % rhs
+		rslv = reshape(rslv,[nx1*ny1,1]);
 
 		% system
 		S    = R*(nu*A + b(1)*B)*R';
-		rhs  = R*rhs;
-		uslv = S \ rhs;
+		rslv = R*rslv;
+		uslv = S \ rslv;
 		uslv = R'*uslv;
+		rslv = R'*rslv ;
 
 		uslv = reshape(uslv,[nx1,ny1]);
-		rhs  = reshape(rhs ,[nx1,ny1]);
+		rslv = reshape(rslv,[nx1,ny1]);
 	
 	end
 
 end
+%----------------------------------------------------------------------
+% Conjugate Gradient
+% ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
-%======================================================================
-%
-%	Conjugate Gradient
-%
-% 	from https://en.wikipedia.org/wiki/Conjugate_gradient_method
-%
-%======================================================================
-%
 function [x,k,rsqnew] = cg(b,x0,tol,maxiter);
 	x = x0;
 	r = b - lhs_op(x); % r = b - Ax
@@ -268,6 +293,7 @@ function [x,k,rsqnew] = cg(b,x0,tol,maxiter);
 		p  = r + be*p;
 		rsqold = rsqnew;
 	end
+	['cg iter:',num2str(k),', residual:',num2str(sqrt(rsqnew))]
 end
 %----------------------------------------------------------------------
 end % driver

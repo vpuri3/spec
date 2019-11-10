@@ -11,8 +11,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 64;
-ny1 = 3;
+nx1 = 16;
+ny1 = 16;
 nxd = ceil(1.5*nx1);
 nyd = ceil(1.5*ny1);
 
@@ -49,10 +49,10 @@ Js1d = interp_mat(zsmd,zsm1);
 %----------------------------------------------------------------------
 % data
 
-solve=0;
+solve=2;
 % 0: CG (possion), 1: FDM (possion), 2: direct (advection-diffusion)
 
-nu= 1e-1;
+nu= 1e-0;
 q = 0+0*xm1;
 cx= 0+0*xm1;
 cy= 0+0*xm1;
@@ -65,7 +65,7 @@ ub = 0-0*xm1;
 
 % mask
 Rx = Irm1(2:end-1,:);   % dir-dir
-Ry = Ism1(1:end-0,:);   % neu-neu
+Ry = Ism1(2:end-1,:);   % neu-neu
 msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
 
 ub = (1-msk) .* ub; % step function on dirichlet BC
