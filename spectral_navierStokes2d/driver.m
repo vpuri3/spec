@@ -4,7 +4,7 @@
 %
 %	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
 %
-%   + Dirichlet/Neumann BC
+%   + Dirichlet/Neumann/Periodic BC
 %
 %======================================================================
 function driver
@@ -34,6 +34,8 @@ nyd = ceil(1.5*ny1);
 
 Drm1 = dhat(zrm1);
 Dsm1 = dhat(zsm1);
+Drm2 = dhat(zrm2);
+Dsm2 = dhat(zsm2);
 Drmd = dhat(zrmd);
 Dsmd = dhat(zsmd);
 
@@ -44,8 +46,8 @@ Ism2 = eye(ny2);
 Irmd = eye(nxd);
 Ismd = eye(nyd);
 
-Jr21 = interp_mat(zrm1,zrm2); % nx2 to nx1
-Js21 = interp_mat(zsm1,zsm2);
+Jr12 = interp_mat(zrm2,zrm1); % nx1 to nx2
+Js12 = interp_mat(zsm2,zsm1);
 Jr1d = interp_mat(zrmd,zrm1); % nx1 to nxd
 Js1d = interp_mat(zsmd,zsm1);
 
@@ -66,46 +68,23 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %----------------------------------------------------------------------
-% Periodic BC test
-
-slv=0;                           % solver --> 0: CG, 1: FDM, 2: direct
-
-nu= 1e-0;
-u = sin(pi*xm1).*sin(pi*ym1);
-cx= 0+0*xm1;
-cy= 0+0*xm1;
-f = 1+0*xm1;
-
-% BC
-ub = u*0;
-
-Rx = [eye(nx1-1),[1;zeros(nx1-2,1)]];  % periodic
-Rx = Irm1(2:end-1,:);                  % dir-dir
-Ry = Ism1(2:end-1,:);                  % dir-dir
-
-%mesh(xm1,ym1,mask(f,Rx,Ry));
-%xlabel('x'); ylabel('y'); colormap([0 0 0]); pause
-
-% time (steady state if T=0)
-T   = 0.0;
-CFL = 0.5;
-
-%----------------------------------------------------------------------
-% advection test
+% data
 
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu= 0e-0;
-u = (xm1-0.5).^2 + (ym1-0).^2; u = exp(-u/0.016);
-cx=-ym1;
-cy= xm1;
+nu= 1e-4;
+vx = (xm1-0.5).^2 + (ym1-0).^2; u = exp(-u/0.016);
+vy = (xm1-0.5).^2 + (ym1-0).^2; u = exp(-u/0.016);
 f = 0*xm1;
 
 % BC
-ub = u*0;
+vxb = 0*xm1;
+vyb = 0*xm1;
 
-Rx = Irm1(2:end-1,:);                  % dir-dir
-Ry = Ism1(2:end-1,:);                  % dir-dir
+Rxvx = Irm1(2:end-1,:);                  % dir-dir
+Ryvx = Ism1(2:end-1,:);                  % dir-dir
+Rxvy = Irm1(2:end-1,:);                  % dir-dir
+Ryvy = Ism1(2:end-1,:);                  % dir-dir
 
 % time (steady state if T=0)
 T   = 2*pi;
@@ -134,12 +113,15 @@ b = zeros(4,1);
 
 % mass
 Bm1 = Jm1.*(wrm1*wsm1');
+Bm2 = Jm2.*(wrm2*wsm2');
 Bmd = Jmd.*(wrmd*wsmd');
 Bm1i= 1 ./ Bm1;
 
 % mask off dirichlet BC
-msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
-ub  = (1-msk) .* ub;
+mskx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
+msky = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
+vxb  = (1-mskx) .* vxb;
+vyb  = (1-msky) .* vyb;
 
 % laplace operator setup
 g11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
@@ -185,21 +167,6 @@ elseif(slv==2) % exact solve setup
 	D  = [Dr;Ds];
 	A  = D'*G*D;
 
-	% advection op
-	Cx = reshape(cx,[nx1*ny1,1]);
-	Cy = reshape(cy,[nx1*ny1,1]);
-	RRX=sparse(diag(reshape(rxm1,[nx1*ny1,1])));
-	RRY=sparse(diag(reshape(rym1,[nx1*ny1,1])));
-	SSX=sparse(diag(reshape(sxm1,[nx1*ny1,1])));
-	SSY=sparse(diag(reshape(sym1,[nx1*ny1,1])));
-	Cxd=sparse(diag(J*Cx));
-	Cyd=sparse(diag(J*Cy));
-	Dx = RRX*Dr + SSX*Ds;
-	Dy = RRY*Dr + SSY*Ds;
-	C  = J'*Bd*(Cxd*J*Dx + Cyd*J*Dy);
-
-	%e = eig(C); plot(real(e),imag(e),'o');pause;
-
 end
 
 %----------------------------------------------------------------------
@@ -208,23 +175,35 @@ end
 t0 = 0;
 t1 = 0;
 t2 = 0;
-u0 = u*0;
-u1 = u0;
-u2 = u0;
-f1 = u0;
-f2 = u0;
+% vx
+vx0 = vx*0;
+vx1 = vx0;
+vx2 = vx0;
+fx1 = vx0;
+fx2 = vx0;
+% vy
+vy0 = vx0;
+vy1 = vx0;
+vy2 = vx0;
+fy1 = vx0;
+fy2 = vx0;
 
 mesh(xm1,ym1,u);
 title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.05)
 
 for it=1:nt
 
-	u = mask(u,Rx,Ry);
+	vx = mask(vx,Rxvx,Ryvx);
+	vy = mask(vy,Rxvy,Ryvy);
 
 	% update histories
 	t3=t2; t2=t1; t1 = t;
-	u3=u2; u2=u1; u1 = u;
-	f3=f2; f2=f1; f1 = rhs_op(u);
+
+	vx3=vx2; vx2=vx1; vx1 = vx;
+	vy3=vy2; vy2=vy1; vy1 = vy;
+
+	fx3=fx2; fx2=fx1; fx1 = rhs_op(vx,vx,vy);
+	fy3=fy2; fy2=fy1; fy1 = rhs_op(vy,vx,vy);
 
 	t = t + dt;
 
@@ -234,25 +213,26 @@ for it=1:nt
 		if(slv==1) Lfdmi = 1 ./ (b(1) + Lfdm); end; % FDM
 	end;
 	
-	% form BDF rhs
-	rhs = a(1)*f1 +a(2)*f2 +a(3)*f3 - Bm1.*(b(2)*u1+b(3)*u2+b(4)*u3);
-	rhs = mask(rhs,Rx,Ry);
+	% BDF rhs
+	rx = a(1)*fx1 +a(2)*fx2 +a(3)*fx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
+	ry = a(1)*fy1 +a(2)*fy2 +a(3)*fy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
 
-	% RK4 to test advection operator
-	K1 = Bm1i .* rhs_op(u     ) * dt;
-	K2 = Bm1i .* rhs_op(u+K1/2) * dt;
-	K3 = Bm1i .* rhs_op(u+K2/2) * dt;
-	K4 = Bm1i .* rhs_op(u+K3  ) * dt;
-	uh = u + (K1/6 + K2/3 + K3/3 + K4/6);
+	rx = mask(vx,Rxvx,Ryvx);
+	ry = mask(vy,Rxvy,Ryvy);
 
 	% viscous solve
-	uh = visc_slv(rhs);
+	vxh = visc_slv(rx);
+	vyh = visc_slv(ry);
 
-	u  = uh + ub;
+	% pressure project
+	[vxh,vyh] = pres_proj(vxh,vyh);
+
+	vx  = vxh + vxb;
+	vy  = vyh + vyb;
 
 	% vis
 	if(mod(it,floor(0.1*nt))==0)
-		mesh(xm1,ym1,u);
+		quiver(xm1,ym1,vx,vy);
 		title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
 		pause(0.05)
 	end
@@ -291,6 +271,7 @@ function [uslv] = visc_slv(rslv)
 
 end
 
+%----------------------------------
 % BDF - implicit OP
 function [ulhs] =  lhs_op(vlhs)
 	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
@@ -298,16 +279,16 @@ function [ulhs] =  lhs_op(vlhs)
 
 	ulhs = mask(ulhs,Rx,Ry);
 end
-
+%----------------------------------
 % BDF - explicit OP
-function [urhs] = rhs_op(vrhs)
-	urhs = -advect2d(vrhs,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+function [urhs] = rhs_op(vrhs,ux,uy)
+	urhs = -advect2d(vrhs,ux,uy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	urhs = urhs + mass2d(Bmd,Jr1d,Js1d,f); % forcing
 	urhs = urhs - lhs_op(ub);              % dirichlet BC
 
 	urhs = mask(urhs,Rx,Ry);
 end
-
+%----------------------------------
 % Conjugate Gradient
 %
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
@@ -335,6 +316,24 @@ end
 %----------------------------------------------------------------------
 % pressure project
 
+function pres_proj(ux,uy)
+end
+%----------------------------------
+function [v] D(ux,uy)
+	[uxdx,uxdy] = grad2d(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	[uydx,uydy] = grad2d(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	
+	v = Bm2 .* (uxdx + uydy);
+end
+%----------------------------------
+function [ux,uy] = Dt(q)
+	Bq = mass2d(Bm2,Irm2,Ism2,q);
+	
+end
+%----------------------------------
+function cg_pres()
+
+end
 %----------------------------------------------------------------------
 end % driver
 %----------------------------------------------------------------------
