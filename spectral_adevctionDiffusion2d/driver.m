@@ -13,19 +13,22 @@ function driver
 %
 %	/todo
 %	- adjust mask to account for periodic BC
-%	- time stepper blowing up
 %
 %----------------------------------------------------------------------
 
 clf; format compact; format shorte;
 
-nx1 = 16;
-ny1 = 16;
+nx1 = 32;
+ny1 = 32;
+nx2 = nx1 - 2;
+ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
 nyd = ceil(1.5*ny1);
 
 [zrm1,wrm1] = zwgll(nx1-1);
 [zsm1,wsm1] = zwgll(ny1-1);
+[zrm2,wrm2] = zwgll(nx2-1);
+[zsm2,wsm2] = zwgll(ny2-1);
 [zrmd,wrmd] = zwgll(nxd-1);
 [zsmd,wsmd] = zwgll(nyd-1);
 
@@ -36,9 +39,13 @@ Dsmd = dhat(zsmd);
 
 Irm1 = eye(nx1);
 Ism1 = eye(ny1);
+Irm2 = eye(nx2);
+Ism2 = eye(ny2);
 Irmd = eye(nxd);
 Ismd = eye(nyd);
 
+Jr21 = interp_mat(zrm1,zrm2); % nx2 to nx1
+Js21 = interp_mat(zsm1,zsm2);
 Jr1d = interp_mat(zrmd,zrm1); % nx1 to nxd
 Js1d = interp_mat(zsmd,zsm1);
 
@@ -48,34 +55,61 @@ Js1d = interp_mat(zsmd,zsm1);
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrm1,zsm1);
 [xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm1,zsm1);
 
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrm2,zsm2);
+[xm2,ym2] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm2,zsm2);
+
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrmd,zsmd);
 [xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
 
 [xm1,ym1] = ndgrid(zrm1,zsm1);
+[xm2,ym2] = ndgrid(zrm2,zsm2);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %----------------------------------------------------------------------
-% data
+% Periodic BC test
 
-slv=2;                           % solver --> 0: CG, 1: FDM, 2: direct
+slv=0;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu= 0e-0;
+nu= 1e-0;
 u = sin(pi*xm1).*sin(pi*ym1);
-cx= 1+0*xm1;
+cx= 0+0*xm1;
 cy= 0+0*xm1;
-f = 0+0*xm1;
+f = 1+0*xm1;
 
 % BC
-ub = u; 					     % dirichlet data
-ifXperiodic=1;
+ub = u*0;
 
-Rx = Irm1(1:end-1,:); Rx(end,end)=0; Rx(1,end)=1;  % periodic
-Rx = Ism1(2:end-1,:);                              % dir-dir
-Ry = Ism1(2:end-1,:);                              % dir-dir
+Rx = [eye(nx1-1),[1;zeros(nx1-2,1)]];  % periodic
+Rx = Irm1(2:end-1,:);                  % dir-dir
+Ry = Ism1(2:end-1,:);                  % dir-dir
+
+%mesh(xm1,ym1,mask(f,Rx,Ry));
+%xlabel('x'); ylabel('y'); colormap([0 0 0]); pause
 
 % time (steady state if T=0)
-T   = 2.0;
-CFL = 0.1;
+T   = 0.0;
+CFL = 0.5;
+
+%----------------------------------------------------------------------
+% advection test
+
+slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
+
+nu= 0e-0;
+u = (xm1-0.5).^2 + (ym1-0).^2; u = exp(-u/0.016);
+cx=-ym1;
+cy= xm1;
+f = 0*xm1;
+
+% BC
+ub = u*0;
+
+Rx = Irm1(2:end-1,:);                  % dir-dir
+Ry = Ism1(2:end-1,:);                  % dir-dir
+
+% time (steady state if T=0)
+T   = 2*pi;
+CFL = 0.5;
 
 %----------------------------------------------------------------------
 % setup
@@ -83,8 +117,10 @@ CFL = 0.1;
 % time stepper
 dx = min(min(diff(xm1)));
 dt = dx*CFL/1;
-nt = ceil(T/dt);
+nt = floor(T/dt);
 dt = T/nt;
+t  = 0;
+it = 0; % time step
 
 if(T==0); nt=1;dt=0; end; % steady
 
@@ -99,6 +135,7 @@ b = zeros(4,1);
 % mass
 Bm1 = Jm1.*(wrm1*wsm1');
 Bmd = Jmd.*(wrmd*wsmd');
+Bm1i= 1 ./ Bm1;
 
 % mask off dirichlet BC
 msk = diag(Rx'*Rx) * diag(Ry'*Ry)';
@@ -129,7 +166,6 @@ if(slv==1) % fast diagonalization setup
 	[Sr,Lr] = eig(Ar,Br); Sri = inv(Sr);
 	[Ss,Ls] = eig(As,Bs); Ssi = inv(Ss);
 	Lfdm = nu * (diag(Lr) + diag(Ls)');
-	Bm1i = 1 ./ Bm1;
 
 elseif(slv==2) % exact solve setup
 
@@ -162,18 +198,12 @@ elseif(slv==2) % exact solve setup
 	Dy = RRY*Dr + SSY*Ds;
 	C  = J'*Bd*(Cxd*J*Dx + Cyd*J*Dy);
 
-	e = eig(C); plot(real(e),imag(e),'o');pause;
+	%e = eig(C); plot(real(e),imag(e),'o');pause;
 
 end
 
 %----------------------------------------------------------------------
 % time advance
-
-t = 0;
-
-mesh(xm1,ym1,u); title(['IC t=',num2str(t)]);pause
-xlabel('$$x$$');
-ylabel('$$y$$');
 
 t0 = 0;
 t1 = 0;
@@ -184,7 +214,12 @@ u2 = u0;
 f1 = u0;
 f2 = u0;
 
+mesh(xm1,ym1,u);
+title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.05)
+
 for it=1:nt
+
+	u = mask(u,Rx,Ry);
 
 	% update histories
 	t3=t2; t2=t1; t1 = t;
@@ -200,44 +235,50 @@ for it=1:nt
 	end;
 	
 	% form BDF rhs
-	rhs = a(1)*f1 +a(2)*f2 +a(3)*f3 - (b(2)*u1+b(3)*u2+b(4)*u3);
-	rhs = msk .* rhs;
+	rhs = a(1)*f1 +a(2)*f2 +a(3)*f3 - Bm1.*(b(2)*u1+b(3)*u2+b(4)*u3);
+	rhs = mask(rhs,Rx,Ry);
+
+	% RK4 to test advection operator
+	K1 = Bm1i .* rhs_op(u     ) * dt;
+	K2 = Bm1i .* rhs_op(u+K1/2) * dt;
+	K3 = Bm1i .* rhs_op(u+K2/2) * dt;
+	K4 = Bm1i .* rhs_op(u+K3  ) * dt;
+	uh = u + (K1/6 + K2/3 + K3/3 + K4/6);
 
 	% viscous solve
 	uh = visc_slv(rhs);
 
 	u  = uh + ub;
 
-	mesh(xm1,ym1,u); title(['t ',num2str(t),', step ',num2str(it)]); pause;
+	% vis
+	if(mod(it,floor(0.1*nt))==0)
+		mesh(xm1,ym1,u);
+		title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
+		pause(0.05)
+	end
 
 end
 %----------------------------------------------------------------------
 % post process
 
-%mesh(xm1,ym1,u-ue);
-%xlabel('$$x$$');
-%ylabel('$$y$$');
-
 %----------------------------------------------------------------------
 % viscous solve
 
-% wrapper
 function [uslv] = visc_slv(rslv)
 
 	if(slv==0) % CG
 	
-		uslv = cg(rslv,0*rslv,1e-8,1e3);
+		uslv = cg_visc(rslv,0*rslv,1e-8,1e3);
 	
 	elseif(slv==1) % FDM
 	
-		rslv = msk .* rslv;
 		uslv = fdm(rslv,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
 	
 	elseif(slv==2) % direct solve
 	
 		rslv = reshape(rslv,[nx1*ny1,1]);
 
-		S    = R *(nu*A + b(1)*B)*R';
+		S    = R *(b(1)*B + nu*A)*R';
 		rslv = R *rslv;
 		uslv = S \rslv;
 		uslv = R'*uslv;
@@ -254,7 +295,8 @@ end
 function [ulhs] =  lhs_op(vlhs)
 	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
-	ulhs = msk .* ulhs; % todo move restriction to elsewhere
+
+	ulhs = mask(ulhs,Rx,Ry);
 end
 
 % BDF - explicit OP
@@ -262,13 +304,15 @@ function [urhs] = rhs_op(vrhs)
 	urhs = -advect2d(vrhs,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	urhs = urhs + mass2d(Bmd,Jr1d,Js1d,f); % forcing
 	urhs = urhs - lhs_op(ub);              % dirichlet BC
+
+	urhs = mask(urhs,Rx,Ry);
 end
 
 % Conjugate Gradient
 %
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
-function [x,k,rsqnew] = cg(b,x0,tol,maxiter);
+function [x,k,rsqnew] = cg_visc(b,x0,tol,maxiter);
 	x = x0;
 	r = b - lhs_op(x); % r = b - Ax
 	rsqold=dot2d(r,r);
@@ -288,6 +332,9 @@ function [x,k,rsqnew] = cg(b,x0,tol,maxiter);
 	end
 	['cg iter:',num2str(k),', residual:',num2str(sqrt(rsqnew))]
 end
+%----------------------------------------------------------------------
+% pressure project
+
 %----------------------------------------------------------------------
 end % driver
 %----------------------------------------------------------------------
