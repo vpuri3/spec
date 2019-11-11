@@ -97,10 +97,10 @@ Ds = (2/Ly)*Dsm1;
 Ar = Dr'*Br*Dr;
 As = Ds'*Bs*Ds;
 
-Br = ABu(Rx,Rx,Br);
-Bs = ABu(Ry,Ry,Bs);
-Ar = ABu(Rx,Rx,Ar);
-As = ABu(Ry,Ry,As);
+Br = Rx*Br*Rx';
+Bs = Ry*Bs*Ry';
+Ar = Rx*Ar*Rx';
+As = Ry*As*Ry';
 
 [Sr,Lr] = eig(Ar,Br); Sri = inv(Sr);
 [Ss,Ls] = eig(As,Bs); Ssi = inv(Ss);

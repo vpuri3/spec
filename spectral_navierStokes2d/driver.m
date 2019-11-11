@@ -73,8 +73,8 @@ Js1d = interp_mat(zsmd,zsm1);
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
 nu= 1e-4;
-vx = (xm1-0.5).^2 + (ym1-0).^2; u = exp(-u/0.016);
-vy = (xm1-0.5).^2 + (ym1-0).^2; u = exp(-u/0.016);
+vx = (xm1-0.5).^2 + (ym1-0).^2; vx = exp(-vx/0.016);
+vy = (xm1-0.5).^2 + (ym1-0).^2; vy = exp(-vy/0.016);
 f = 0*xm1;
 
 % BC
@@ -109,6 +109,7 @@ b = zeros(4,1);
 
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
+[Jm2,Jim2,rxm2,rym2,sxm2,sym2] = jac2d(xm2,ym2,Irm2,Ism2,Drm2,Dsm2);
 [Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Irmd,Ismd,Drmd,Dsmd);
 
 % mass
@@ -140,14 +141,23 @@ if(slv==1) % fast diagonalization setup
 	Ar = Dr'*Br*Dr;
 	As = Ds'*Bs*Ds;
 	
-	Br = ABu(Rx,Rx,Br);
-	Bs = ABu(Ry,Ry,Bs);
-	Ar = ABu(Rx,Rx,Ar);
-	As = ABu(Ry,Ry,As);
-	
-	[Sr,Lr] = eig(Ar,Br); Sri = inv(Sr);
-	[Ss,Ls] = eig(As,Bs); Ssi = inv(Ss);
-	Lfdm = nu * (diag(Lr) + diag(Ls)');
+	Brvx = Rxvx*Br*Rxvx';
+	Bsvx = Ryvx*Bs*Ryvx';
+	Arvx = Rxvx*Ar*Rxvx';
+	Asvx = Ryvx*As*Ryvx';
+
+	Brvy = Rxvy*Br*Rxvy';
+	Bsvy = Ryvy*Bs*Ryvy';
+	Arvy = Rxvy*Ar*Rxvy';
+	Asvy = Ryvy*As*Ryvy';
+
+	[Srvx,Lrvx] = eig(Arvx,Brvx); Srivx = inv(Srvx);
+	[Ssvx,Lsvx] = eig(Asvx,Bsvx); Ssivx = inv(Ssvx);
+	Lvx = nu * (diag(Lrvx) + diag(Lsvx)');
+
+	[Srvy,Lrvy] = eig(Arvy,Brvy); Srivy = inv(Srvy);
+	[Ssvy,Lsvy] = eig(Asvy,Bsvy); Ssivy = inv(Ssvy);
+	Lvy = nu * (diag(Lrvy) + diag(Lsvy)');
 
 elseif(slv==2) % exact solve setup
 
@@ -179,16 +189,16 @@ t2 = 0;
 vx0 = vx*0;
 vx1 = vx0;
 vx2 = vx0;
-fx1 = vx0;
-fx2 = vx0;
+fvx1 = vx0;
+fvx2 = vx0;
 % vy
 vy0 = vx0;
 vy1 = vx0;
 vy2 = vx0;
-fy1 = vx0;
-fy2 = vx0;
+fvy1 = vx0;
+fvy2 = vx0;
 
-mesh(xm1,ym1,u);
+quiver(xm1,ym1,vx,vy);pause(0.05);
 title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.05)
 
 for it=1:nt
@@ -202,30 +212,30 @@ for it=1:nt
 	vx3=vx2; vx2=vx1; vx1 = vx;
 	vy3=vy2; vy2=vy1; vy1 = vy;
 
-	fx3=fx2; fx2=fx1; fx1 = rhs_op(vx,vx,vy);
-	fy3=fy2; fy2=fy1; fy1 = rhs_op(vy,vx,vy);
+	fvx3=fvx2; fvx2=fvx1; fvx1 = rhs_op(vx,vxb,vx,vy);
+	fvy3=fvy2; fvy2=fvy1; fvy1 = rhs_op(vy,vxb,vx,vy);
 
 	t = t + dt;
 
 	if(it<=3)
 		[a,b] = bdfext3([t t1 t2 t3]);
-		if(T  ==0) a(1)=1; b=0*b;              end; % steady
-		if(slv==1) Lfdmi = 1 ./ (b(1) + Lfdm); end; % FDM
+		if(T  ==0) a(1)=1; b=0*b;            end; % steady
+		if(slv==1) Lvxi = 1 ./ (b(1) + Lvx);      % FDM
+		           Lvyi = 1 ./ (b(1) + Lvy); end;
 	end;
 	
 	% BDF rhs
-	rx = a(1)*fx1 +a(2)*fx2 +a(3)*fx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
-	ry = a(1)*fy1 +a(2)*fy2 +a(3)*fy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
+	rvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
+	rvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
 
-	rx = mask(vx,Rxvx,Ryvx);
-	ry = mask(vy,Rxvy,Ryvy);
+	rvx = mask(vx,Rxvx,Ryvx);
+	rvy = mask(vy,Rxvy,Ryvy);
 
 	% viscous solve
-	vxh = visc_slv(rx);
-	vyh = visc_slv(ry);
+	[vxh,vyh] = visc_slv(rvx,rvy);
 
 	% pressure project
-	[vxh,vyh] = pres_proj(vxh,vyh);
+	%[vxh,vyh] = pres_proj(vxh,vyh);
 
 	vx  = vxh + vxb;
 	vy  = vyh + vyb;
@@ -244,15 +254,17 @@ end
 %----------------------------------------------------------------------
 % viscous solve
 
-function [uslv] = visc_slv(rslv)
+function [ux,uy] = visc_slv(rhsvx,rhsvy)
 
 	if(slv==0) % CG
 	
-		uslv = cg_visc(rslv,0*rslv,1e-8,1e3);
+		ux = cg_visc(rhsvx,0*rhsvx,1e-8,1e3);
+		uy = cg_visc(rhsvy,0*rhsvy,1e-8,1e3);
 	
 	elseif(slv==1) % FDM
 	
-		uslv = fdm(rslv,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Lfdmi);
+		ux = fdm(rhsvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi);
+		uy = fdm(rhsvy,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvyi);
 	
 	elseif(slv==2) % direct solve
 	
@@ -277,16 +289,14 @@ function [ulhs] =  lhs_op(vlhs)
 	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
 
-	ulhs = mask(ulhs,Rx,Ry);
+	%ulhs = mask(ulhs,Rx,Ry);
 end
 %----------------------------------
 % BDF - explicit OP
-function [urhs] = rhs_op(vrhs,ux,uy)
+function [urhs] = rhs_op(vrhs,vb,ux,uy)
 	urhs = -advect2d(vrhs,ux,uy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	urhs = urhs + mass2d(Bmd,Jr1d,Js1d,f); % forcing
-	urhs = urhs - lhs_op(ub);              % dirichlet BC
-
-	urhs = mask(urhs,Rx,Ry);
+	urhs = urhs - lhs_op(vb);              % dirichlet BC
 end
 %----------------------------------
 % Conjugate Gradient
@@ -317,20 +327,22 @@ end
 % pressure project
 
 function pres_proj(ux,uy)
-end
-%----------------------------------
-function [v] D(ux,uy)
-	[uxdx,uxdy] = grad2d(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	[uydx,uydy] = grad2d(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+
+	%----------------------------------
+	function [q] = D(ux,uy)
+		[uxdx,uxdy] = grad2d(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		[uydx,uydy] = grad2d(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	
-	v = Bm2 .* (uxdx + uydy);
+		v = Bm2 .* ABu(Js12,Jr12,uxdx + uydy);
+	end
+	%----------------------------------
+	function [ux,uy] = Dt(q)
+		JBq = ABu(Js12',Jr12',Bm2 .* q);
+		ux = ABu(Ism1,Drm1',rxm1.*JBq) + ABu(Dsm1',Irm1,sxm1.*JBq);
+		uy = ABu(Ism1,Drm1',rym1.*JBq) + ABu(Dsm1',Irm1,sym1.*JBq);
+	end
+	%----------------------------------
 end
-%----------------------------------
-function [ux,uy] = Dt(q)
-	Bq = mass2d(Bm2,Irm2,Ism2,q);
-	
-end
-%----------------------------------
 function cg_pres()
 
 end
