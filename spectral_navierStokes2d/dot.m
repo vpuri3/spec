@@ -1,5 +1,5 @@
 %
-function [a] = dot2d(v,u);
+function [a] = dot(v,u);
 	a = v .* u;
 	a = sum(sum(a));
 end

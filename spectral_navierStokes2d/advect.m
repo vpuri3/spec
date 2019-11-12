@@ -1,11 +1,11 @@
 %
 %   (\vect{v},\vect{c} \cdot \grad(u))
 %
-function [w] = advect2d(u,msk,cx,cy,Bmd,Ir,Is,Jr,Js,Dr,Ds,rx,ry,sx,sy);
+function [w] = advect(u,msk,cx,cy,Bmd,Ir,Is,Jr,Js,Dr,Ds,rx,ry,sx,sy);
 
 uu = mask(u,msk);
 
-[ux,uy] = grad2d(uu,Ir,Is,Dr,Ds,rx,ry,sx,sy);
+[ux,uy] = grad(uu,Ir,Is,Dr,Ds,rx,ry,sx,sy);
 
 uxd = ABu(Js,Jr,ux);
 uyd = ABu(Js,Jr,uy);

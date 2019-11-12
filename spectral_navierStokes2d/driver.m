@@ -55,14 +55,13 @@ Js1d = interp_mat(zsmd,zsm1);
 %----------------------------------------------------------------------
 % deform geometry
 
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrm1,zsm1);
-[xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm1,zsm1);
+[xrm1,xrp1,xsm1,xsp1,yrm1,yrp1,ysm1,ysp1] = qtrcirc(zrm1,zsm1);
+[xrm2,xrp2,xsm2,xsp2,yrm2,yrp2,ysm2,ysp2] = qtrcirc(zrm2,zsm2);
+[xrmd,xrpd,xsmd,xspd,yrmd,yrpd,ysmd,yspd] = qtrcirc(zrmd,zsmd);
 
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrm2,zsm2);
-[xm2,ym2] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm2,zsm2);
-
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zrmd,zsmd);
-[xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
+[xm1,ym1] = gordonhall2d(xrm1,xrp1,xsm1,xsp1,yrm1,yrp1,ysm1,ysp1,zrm1,zsm1);
+[xm2,ym2] = gordonhall2d(xrm2,xrp2,xsm2,xsp2,yrm2,yrp2,ysm2,ysp2,zrm2,zsm2);
+[xmd,ymd] = gordonhall2d(xrmd,xrpd,xsmd,xspd,yrmd,yrpd,ysmd,yspd,zrmd,zsmd);
 
 [xm1,ym1] = ndgrid(zrm1,zsm1);
 [xm2,ym2] = ndgrid(zrm2,zsm2);
@@ -130,51 +129,51 @@ g22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
 if(slv==1) % fast diagonalization setup
 
-	Lx = max(max(xm1))-min(min(xm1));
-	Ly = max(max(ym1))-min(min(ym1));
-	
-	Br = (Lx/2)*diag(wrm1);
-	Bs = (Ly/2)*diag(wsm1);
-	Dr = (2/Lx)*Drm1;
-	Ds = (2/Ly)*Dsm1;
-	Ar = Dr'*Br*Dr;
-	As = Ds'*Bs*Ds;
-	
-	Brvx = Rxvx*Br*Rxvx';
-	Bsvx = Ryvx*Bs*Ryvx';
-	Arvx = Rxvx*Ar*Rxvx';
-	Asvx = Ryvx*As*Ryvx';
+Lx = max(max(xm1))-min(min(xm1));
+Ly = max(max(ym1))-min(min(ym1));
 
-	Brvy = Rxvy*Br*Rxvy';
-	Bsvy = Ryvy*Bs*Ryvy';
-	Arvy = Rxvy*Ar*Rxvy';
-	Asvy = Ryvy*As*Ryvy';
+Br = (Lx/2)*diag(wrm1);
+Bs = (Ly/2)*diag(wsm1);
+Dr = (2/Lx)*Drm1;
+Ds = (2/Ly)*Dsm1;
+Ar = Dr'*Br*Dr;
+As = Ds'*Bs*Ds;
 
-	[Srvx,Lrvx] = eig(Arvx,Brvx); Srivx = inv(Srvx);
-	[Ssvx,Lsvx] = eig(Asvx,Bsvx); Ssivx = inv(Ssvx);
-	Lvx = nu * (diag(Lrvx) + diag(Lsvx)');
+Brvx = Rxvx*Br*Rxvx';
+Bsvx = Ryvx*Bs*Ryvx';
+Arvx = Rxvx*Ar*Rxvx';
+Asvx = Ryvx*As*Ryvx';
 
-	[Srvy,Lrvy] = eig(Arvy,Brvy); Srivy = inv(Srvy);
-	[Ssvy,Lsvy] = eig(Asvy,Bsvy); Ssivy = inv(Ssvy);
-	Lvy = nu * (diag(Lrvy) + diag(Lsvy)');
+Brvy = Rxvy*Br*Rxvy';
+Bsvy = Ryvy*Bs*Ryvy';
+Arvy = Rxvy*Ar*Rxvy';
+Asvy = Ryvy*As*Ryvy';
+
+[Srvx,Lrvx] = eig(Arvx,Brvx); Srivx = inv(Srvx);
+[Ssvx,Lsvx] = eig(Asvx,Bsvx); Ssivx = inv(Ssvx);
+Lvx = nu * (diag(Lrvx) + diag(Lsvx)');
+
+[Srvy,Lrvy] = eig(Arvy,Brvy); Srivy = inv(Srvy);
+[Ssvy,Lsvy] = eig(Asvy,Bsvy); Ssivy = inv(Ssvy);
+Lvy = nu * (diag(Lrvy) + diag(Lsvy)');
 
 elseif(slv==2) % exact solve setup
 
-	% operators
-	R  = sparse(kron(Ry,Rx));
-	J  = sparse(kron(Js1d,Jr1d));
-	B  = sparse(diag(reshape(Bm1,[nx1*ny1,1])));
-	Bd = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
+% operators
+R  = sparse(kron(Ry,Rx));
+J  = sparse(kron(Js1d,Jr1d));
+B  = sparse(diag(reshape(Bm1,[nx1*ny1,1])));
+Bd = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
 
-	% laplace op
-	G11=sparse(diag(reshape(g11,[nxd*nyd,1]))); G11 = J'*G11*J;
-	G12=sparse(diag(reshape(g12,[nxd*nyd,1]))); G12 = J'*G12*J;
-	G22=sparse(diag(reshape(g22,[nxd*nyd,1]))); G22 = J'*G22*J;
-	G  = [G11 G12; G12 G22];
-	Dr = kron(Ism1,Drm1);
-	Ds = kron(Dsm1,Irm1);
-	D  = [Dr;Ds];
-	A  = D'*G*D;
+% laplace op
+G11=sparse(diag(reshape(g11,[nxd*nyd,1]))); G11 = J'*G11*J;
+G12=sparse(diag(reshape(g12,[nxd*nyd,1]))); G12 = J'*G12*J;
+G22=sparse(diag(reshape(g22,[nxd*nyd,1]))); G22 = J'*G22*J;
+G  = [G11 G12; G12 G22];
+Dr = kron(Ism1,Drm1);
+Ds = kron(Dsm1,Irm1);
+D  = [Dr;Ds];
+A  = D'*G*D;
 
 end
 
@@ -254,15 +253,15 @@ end
 
 % BDF - implicit OP
 function [Hu] =  hmhltz(u,msk)
-	Hu = nu*laplace2d(u,msk,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-	Hu = Hu + b(1)*mass2d(u,msk,Bmd,Jr1d,Js1d);
+	Hu = nu*laplace(u,msk,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+	Hu = Hu + b(1)*mass(u,msk,Bmd,Jr1d,Js1d);
 end
 
 % BDF - explicit OP
 function [Fu] = bdf_expl(u,ub,msk,cx,cy)
-	Fu = -advect2d(u,msk,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	Fu = Fu + mass2d(Bmd,Jr1d,Js1d,f); % forcing
-	Fu = Fu - hmhltz(ub);              % dirichlet BC
+	Fu = -advect(u,msk,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	Fu = Fu + mass(Bmd,Jr1d,Js1d,f); % forcing
+	Fu = Fu - hmhltz(ub);            % dirichlet BC
 end
 
 % viscous solve
@@ -302,17 +301,17 @@ end
 function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 	x = x0;
 	r = b - hmhltz(x,msk); % r = b - Ax
-	rsqold=dot2d(r,r);
+	rsqold=dot(r,r);
 	
 	if(sqrt(rsqold) < tol); rsqnew=rsqold; return; end;
 	
 	p=r;
 	for k=1:maxiter
 		Ap = hmhltz(p,msk); % Ap = A*p
-		al = rsqold / dot2d(p,Ap);
+		al = rsqold / dot(p,Ap);
 		x  = x + al*p;
 		r  = r - al*Ap;
-		rsqnew=dot2d(r,r); if(sqrt(rsqnew) < tol); return; end;
+		rsqnew=dot(r,r); if(sqrt(rsqnew) < tol); return; end;
 		be = rsqnew / rsqold;
 		p  = r + be*p;
 		rsqold = rsqnew;
@@ -330,8 +329,8 @@ function [cx,cy,p] = pres_proj(ux,uy)
 		ux = mask(ux,mskvx);
 		uy = mask(uy,mskvy);
 
-		[uxdx,uxdy] = grad2d(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		[uydx,uydy] = grad2d(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		[uxdx,uxdy] = grad(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		[uydx,uydy] = grad(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	
 		q = Bm2 .* ABu(Js12,Jr12,uxdx + uydy);
 	end

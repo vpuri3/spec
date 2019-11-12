@@ -1,7 +1,7 @@
 %
 %     (v,-\del^2 u)
 %
-function [w] = laplace2d(u,msk,Jr,Js,Dr,Ds,G11,G12,G22);
+function [w] = laplace(u,msk,Jr,Js,Dr,Ds,G11,G12,G22);
 
 uu = mask(u,msk);
 
