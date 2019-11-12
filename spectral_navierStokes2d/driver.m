@@ -4,7 +4,7 @@
 %
 %	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
 %
-%   + Dirichlet/Neumann/Periodic BC
+%   + Dirichlet/Neumann BC
 %
 %======================================================================
 function driver
@@ -13,6 +13,7 @@ function driver
 %
 %	/todo
 %	- adjust mask to account for periodic BC
+%	- uzawa splitting
 %
 %----------------------------------------------------------------------
 
@@ -29,8 +30,8 @@ nyd = ceil(1.5*ny1);
 [zsm1,wsm1] = zwgll(ny1-1);
 [zrm2,wrm2] = zwgll(nx2-1);
 [zsm2,wsm2] = zwgll(ny2-1);
-[zrmd,wrmd] = zwgll(nxd-1);
-[zsmd,wsmd] = zwgll(nyd-1);
+[zrmd,wrmd] = zwgl (nxd-1);
+[zsmd,wsmd] = zwgl (nyd-1);
 
 Drm1 = dhat(zrm1);
 Dsm1 = dhat(zsm1);
@@ -77,7 +78,7 @@ vx = (xm1-0.5).^2 + (ym1-0).^2; vx = exp(-vx/0.016);
 vy = (xm1-0.5).^2 + (ym1-0).^2; vy = exp(-vy/0.016);
 f = 0*xm1;
 
-% BC
+% BC --> smooth functinos
 vxb = 0*xm1;
 vyb = 0*xm1;
 
@@ -118,11 +119,9 @@ Bm2 = Jm2.*(wrm2*wsm2');
 Bmd = Jmd.*(wrmd*wsmd');
 Bm1i= 1 ./ Bm1;
 
-% mask off dirichlet BC
-mskx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
-msky = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
-vxb  = (1-mskx) .* vxb;
-vyb  = (1-msky) .* vyb;
+% mask
+mskvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
+mskvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
 
 % laplace operator setup
 g11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
@@ -203,17 +202,14 @@ title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.05)
 
 for it=1:nt
 
-	vx = mask(vx,Rxvx,Ryvx);
-	vy = mask(vy,Rxvy,Ryvy);
-
 	% update histories
 	t3=t2; t2=t1; t1 = t;
 
 	vx3=vx2; vx2=vx1; vx1 = vx;
 	vy3=vy2; vy2=vy1; vy1 = vy;
 
-	fvx3=fvx2; fvx2=fvx1; fvx1 = rhs_op(vx,vxb,vx,vy);
-	fvy3=fvy2; fvy2=fvy1; fvy1 = rhs_op(vy,vxb,vx,vy);
+	fvx3=fvx2; fvx2=fvx1; fvx1 = bdf_expl(vx,vxb,mskvx,vx,vy);
+	fvy3=fvy2; fvy2=fvy1; fvy1 = bdf_expl(vy,vxb,mskvy,vx,vy);
 
 	t = t + dt;
 
@@ -228,14 +224,11 @@ for it=1:nt
 	rvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
 	rvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
 
-	rvx = mask(vx,Rxvx,Ryvx);
-	rvy = mask(vy,Rxvy,Ryvy);
-
 	% viscous solve
 	[vxh,vyh] = visc_slv(rvx,rvy);
 
 	% pressure project
-	%[vxh,vyh] = pres_proj(vxh,vyh);
+	%[vxh,vyh,p] = pres_proj(vxh,vyh);
 
 	vx  = vxh + vxb;
 	vy  = vyh + vyb;
@@ -247,19 +240,38 @@ for it=1:nt
 		pause(0.05)
 	end
 
+	% keep track of norms, etc
+
 end
 %----------------------------------------------------------------------
 % post process
 
-%----------------------------------------------------------------------
-% viscous solve
+%======================================================================
+%
+%	Helper functions
+%
+%======================================================================
 
+% BDF - implicit OP
+function [Hu] =  hmhltz(u,msk)
+	Hu = nu*laplace2d(u,msk,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+	Hu = Hu + b(1)*mass2d(u,msk,Bmd,Jr1d,Js1d);
+end
+
+% BDF - explicit OP
+function [Fu] = bdf_expl(u,ub,msk,cx,cy)
+	Fu = -advect2d(u,msk,cx,cy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	Fu = Fu + mass2d(Bmd,Jr1d,Js1d,f); % forcing
+	Fu = Fu - hmhltz(ub);              % dirichlet BC
+end
+
+% viscous solve
 function [ux,uy] = visc_slv(rhsvx,rhsvy)
 
 	if(slv==0) % CG
 	
-		ux = cg_visc(rhsvx,0*rhsvx,1e-8,1e3);
-		uy = cg_visc(rhsvy,0*rhsvy,1e-8,1e3);
+		ux = cg_visc(rhsvx,mskvx,0*rhsvx,1e-8,1e3);
+		uy = cg_visc(rhsvy,mskvx,0*rhsvy,1e-8,1e3);
 	
 	elseif(slv==1) % FDM
 	
@@ -283,36 +295,20 @@ function [ux,uy] = visc_slv(rhsvx,rhsvy)
 
 end
 
-%----------------------------------
-% BDF - implicit OP
-function [ulhs] =  lhs_op(vlhs)
-	ulhs = nu*laplace2d(vlhs,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-	ulhs = ulhs + b(1)*mass2d(Bmd,Jr1d,Js1d,vlhs);
-
-	%ulhs = mask(ulhs,Rx,Ry);
-end
-%----------------------------------
-% BDF - explicit OP
-function [urhs] = rhs_op(vrhs,vb,ux,uy)
-	urhs = -advect2d(vrhs,ux,uy,Bmd,Irm1,Ism1,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	urhs = urhs + mass2d(Bmd,Jr1d,Js1d,f); % forcing
-	urhs = urhs - lhs_op(vb);              % dirichlet BC
-end
-%----------------------------------
 % Conjugate Gradient
 %
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
-function [x,k,rsqnew] = cg_visc(b,x0,tol,maxiter);
+function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 	x = x0;
-	r = b - lhs_op(x); % r = b - Ax
+	r = b - hmhltz(x,msk); % r = b - Ax
 	rsqold=dot2d(r,r);
 	
 	if(sqrt(rsqold) < tol); rsqnew=rsqold; return; end;
 	
 	p=r;
 	for k=1:maxiter
-		Ap = lhs_op(p); % Ap = A*p
+		Ap = hmhltz(p,msk); % Ap = A*p
 		al = rsqold / dot2d(p,Ap);
 		x  = x + al*p;
 		r  = r - al*Ap;
@@ -326,22 +322,30 @@ end
 %----------------------------------------------------------------------
 % pressure project
 
-function pres_proj(ux,uy)
-
+function [cx,cy,p] = pres_proj(ux,uy)
+	
+	rp = D(vxb,vyb);
 	%----------------------------------
 	function [q] = D(ux,uy)
+		ux = mask(ux,mskvx);
+		uy = mask(uy,mskvy);
+
 		[uxdx,uxdy] = grad2d(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 		[uydx,uydy] = grad2d(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	
-		v = Bm2 .* ABu(Js12,Jr12,uxdx + uydy);
+		q = Bm2 .* ABu(Js12,Jr12,uxdx + uydy);
 	end
-	%----------------------------------
-	function [ux,uy] = Dt(q)
+	function [qx,qy] = Dt(q)
 		JBq = ABu(Js12',Jr12',Bm2 .* q);
-		ux = ABu(Ism1,Drm1',rxm1.*JBq) + ABu(Dsm1',Irm1,sxm1.*JBq);
-		uy = ABu(Ism1,Drm1',rym1.*JBq) + ABu(Dsm1',Irm1,sym1.*JBq);
+
+		qx = ABu(Ism1,Drm1',rxm1.*JBq) + ABu(Dsm1',Irm1,sxm1.*JBq);
+		qy = ABu(Ism1,Drm1',rym1.*JBq) + ABu(Dsm1',Irm1,sym1.*JBq);
+
+		qx = mask(qx,mskvx);
+		qy = mask(qy,mskvy);
+
 	end
-	%----------------------------------
+	
 end
 function cg_pres()
 
