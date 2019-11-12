@@ -16,6 +16,6 @@ w = cxd.*uxd + cyd.*uyd;
 w = Bmd.*w;
 w = ABu(Js',Jr',w);
 
-w = msk(w,msk);
+w = mask(w,msk);
 
 end

@@ -73,8 +73,9 @@ Js1d = interp_mat(zsmd,zsm1);
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
 nu= 1e-4;
-vx = (xm1-0.5).^2 + (ym1-0).^2; vx = exp(-vx/0.016);
-vy = (xm1-0.5).^2 + (ym1-0).^2; vy = exp(-vy/0.016);
+vx= (xm1-0.5).^2 + (ym1-0).^2; vx = exp(-vx/0.016);
+vy= (xm1-0.5).^2 + (ym1-0).^2; vy = exp(-vy/0.016);
+p = 0*xm2;
 f = 0*xm1;
 
 % BC --> smooth functinos
@@ -204,11 +205,19 @@ for it=1:nt
 	% update histories
 	t3=t2; t2=t1; t1 = t;
 
+	p0=p;
+
 	vx3=vx2; vx2=vx1; vx1 = vx;
 	vy3=vy2; vy2=vy1; vy1 = vy;
 
-	fvx3=fvx2; fvx2=fvx1; fvx1 = bdf_expl(vx,vxb,mskvx,vx,vy);
-	fvy3=fvy2; fvy2=fvy1; fvy1 = bdf_expl(vy,vxb,mskvy,vx,vy);
+	fvx3=fvx2; fvx2=fvx1;
+	fvy3=fvy2; fvy2=fvy1;
+
+	% pressure forcing
+	[px,py] = vgradp(p0,mskvx,mskvy,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+
+ 	fvx1 = bdf_expl(vx,vxb,mskvx,vx,vy) + px;
+ 	fvy1 = bdf_expl(vy,vxb,mskvy,vx,vy) + py;
 
 	t = t + dt;
 
@@ -226,11 +235,11 @@ for it=1:nt
 	% viscous solve
 	[vxh,vyh] = visc_slv(rvx,rvy);
 
-	% pressure project
-	%[vxh,vyh,p] = pres_proj(vxh,vyh);
-
 	vx  = vxh + vxb;
 	vy  = vyh + vyb;
+
+	% pressure project
+	[vxh,vyh,p] = pres_proj(vx,vy);
 
 	% vis
 	if(mod(it,floor(0.1*nt))==0)
@@ -321,29 +330,15 @@ end
 %----------------------------------------------------------------------
 % pressure project
 
-function [cx,cy,p] = pres_proj(ux,uy)
-	
-	rp = D(vxb,vyb);
-	%----------------------------------
-	function [q] = D(ux,uy)
-		ux = mask(ux,mskvx);
-		uy = mask(uy,mskvy);
+function [cx,cy,p] = pres_proj(ux,uy,q0)
 
-		[uxdx,uxdy] = grad(ux,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		[uydx,uydy] = grad(uy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	
-		q = Bm2 .* ABu(Js12,Jr12,uxdx + uydy);
-	end
-	function [qx,qy] = Dt(q)
-		JBq = ABu(Js12',Jr12',Bm2 .* q);
+	g = qdivu(ux,uy,mskvx,mskvy,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1)
 
-		qx = ABu(Ism1,Drm1',rxm1.*JBq) + ABu(Dsm1',Irm1,sxm1.*JBq);
-		qy = ABu(Ism1,Drm1',rym1.*JBq) + ABu(Dsm1',Irm1,sym1.*JBq);
+	% solve for pressure
+	[qx,qy] = vgradp(q,mskvx,mskvy,jr12,js12,irm1,ism1,drm1,dsm1,rxm1,rym1,sxm1,sym1)
 
-		qx = mask(qx,mskvx);
-		qy = mask(qy,mskvy);
 
-	end
+	% adjust u 
 	
 end
 function cg_pres()
