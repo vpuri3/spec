@@ -1,4 +1,4 @@
-%======================================================================
+%===============================================================================
 %
 %	Driver function for advection diffusion equation
 %
@@ -6,16 +6,16 @@
 %
 %   + Dirichlet/Neumann BC
 %
-%==============================================================================
+%===============================================================================
 function driver
 %
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 %
 %	/todo
 %	- adjust mask to account for periodic BC
 %	- uzawa algorithm with algebraic splitting
 %
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 
 clf; format compact; format shorte;
 
@@ -52,7 +52,7 @@ Js12 = interp_mat(zsm2,zsm1);
 Jr1d = interp_mat(zrmd,zrm1); % nx1 to nxd
 Js1d = interp_mat(zsmd,zsm1);
 
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 % geometry
 
 [xrm1,xrp1,xsm1,xsp1,yrm1,yrp1,ysm1,ysp1] = qtrcirc(zrm1,zsm1);
@@ -67,7 +67,7 @@ Js1d = interp_mat(zsmd,zsm1);
 [xm2,ym2] = ndgrid(zrm2,zsm2);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 % data
 
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
@@ -76,7 +76,9 @@ nu= 1e-4;
 vx= (xm1-0.5).^2 + (ym1-0).^2; vx = exp(-vx/0.016);
 vy= (xm1-0.5).^2 + (ym1-0).^2; vy = exp(-vy/0.016);
 p = 0*xm2;
-f = 0*xm1;
+fx= 0*xm1; % forcing
+fy= 0*xm1;
+fz= 0*xm1;
 
 % BC --> smooth functinos
 vxb = 0*xm1;
@@ -212,7 +214,7 @@ vy2 = vx0;
 fvy1 = vx0;
 fvy2 = vx0;
 
-quiver(xm1,ym1,vx,vy);pause(0.05);
+quiver(xm1,ym1,vx,vy);
 title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.05)
 
 for it=1:nt
@@ -232,8 +234,8 @@ for it=1:nt
 	[px,py] = vgradp(p0,mskvx,mskvy,Bm2,Jr12,Js12,Irm1,Ism1,Drm1...
 				             ,Dsm1,rxm1,rym1,sxm1,sym1);
 
- 	fvx1 = bdf_expl(vx,vxb,mskvx,vx,vy) + px;
- 	fvy1 = bdf_expl(vy,vxb,mskvy,vx,vy) + py;
+ 	fvx1 = bdf_expl(vx,vxb,mskvx,fx,vx,vy) + px;
+ 	fvy1 = bdf_expl(vy,vxb,mskvy,fy,vx,vy) + py;
 
 	t = t + dt;
 
@@ -265,27 +267,27 @@ for it=1:nt
 	end
 
 end
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 % post process
 
-%==============================================================================
+%===============================================================================
 %
 %	Helper functions
 %
-%==============================================================================
+%===============================================================================
 
 % BDF - implicit OP
-function [Hu] =  hmhltz(u,msk)
-	Hu = nu * lapl(u,msk,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-	Hu = Hu + b(1)*mass(u,msk,Bmd,Jr1d,Js1d);
+function [Hu] =  hmhltz(uhm,mskhm)
+	Hu = nu * lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+	Hu = Hu + b(1)*mass(uhm,mskhm,Bmd,Jr1d,Js1d);
 end
 
 % BDF - explicit OP
-function [Fu] = bdf_expl(u,ub,msk,cx,cy)
-	Fu = -advect(u,msk,cx,cy,Bmd,Irm1,Ism1,Jr1d...
+function [Fu] = bdf_expl(uexp,ubexp,mskexp,f,cx,cy)
+	Fu = -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d...
 				,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	Fu = Fu + mass(f,msk,Bmd,Jr1d,Js1d); % forcing
-	Fu = Fu - hmhltz(ub,msk);            % dirichlet BC
+	Fu = Fu + mass(f,mskexp,Bmd,Jr1d,Js1d); % forcing
+	Fu = Fu - hmhltz(ubexp,mskexp);         % dirichlet BC
 end
 
 % viscous solve
@@ -340,7 +342,7 @@ function [ux,uy,p] = pres_proj(cx,cy,q0)
 	p = p + p0;
 
 end
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 % Conjugate Gradient
 %
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
@@ -348,7 +350,7 @@ end
 function cg_pres()
 
 end
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
 function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 	x = x0;
 	r = b - hmhltz(x,msk); % r = b - Ax
@@ -369,6 +371,5 @@ function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 	end
 	['cg iter:',num2str(k),', residual:',num2str(sqrt(rsqnew))]
 end
-%------------------------------------------------------------------------------
+%===============================================================================
 end % driver
-%------------------------------------------------------------------------------
