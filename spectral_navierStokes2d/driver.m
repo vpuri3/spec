@@ -12,8 +12,9 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- adjust mask to account for periodic BC
-%	- uzawa algorithm with algebraic splitting
+%	- periodic BC with mask operator
+%	- 
+%	- test
 %
 %-------------------------------------------------------------------------------
 
@@ -68,28 +69,27 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %-------------------------------------------------------------------------------
-% data
+% lid driven cavity
 
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu= 1e-4;
-vx= (xm1-0.5).^2 + (ym1-0).^2; vx = exp(-vx/0.016);
-vy= (xm1-0.5).^2 + (ym1-0).^2; vy = exp(-vy/0.016);
-p = 0*xm2;
-fx= 0*xm1; % forcing
-fy= 0*xm1;
-fz= 0*xm1;
+nu = 1e-1;
+vx = 0*xm1; vx(:,end) = 1;
+vy = 0*xm1;
+p  = 0*xm2;
+fx = 0*xm1; % forcing
+fy = 0*xm1;
 
 % BC --> smooth functinos
-vxb = 0*xm1;
-vyb = 0*xm1;
+vxb = vx;
+vyb = vy;
 
 Rxvx = Irm1(2:end-1,:);                  % dir-dir
 Ryvx = Ism1(2:end-1,:);                  % dir-dir
 Rxvy = Irm1(2:end-1,:);                  % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
 
-T   = 2*pi;
+T   = 2.0;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -214,8 +214,9 @@ vy2 = vx0;
 fvy1 = vx0;
 fvy2 = vx0;
 
-quiver(xm1,ym1,vx,vy);
-title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.05)
+quiver(xm1,ym1,vx,vy);grid on;
+[num2str(dot(vx,Bm1.*vx)),', ',num2str(dot(vy,Bm1.*vy))]
+title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.01)
 
 for it=1:nt
 
@@ -235,7 +236,7 @@ for it=1:nt
 				             ,Dsm1,rxm1,rym1,sxm1,sym1);
 
  	fvx1 = bdf_expl(vx,vxb,mskvx,fx,vx,vy) + px;
- 	fvy1 = bdf_expl(vy,vxb,mskvy,fy,vx,vy) + py;
+ 	fvy1 = bdf_expl(vy,vyb,mskvy,fy,vx,vy) + py;
 
 	t = t + dt;
 
@@ -259,16 +260,23 @@ for it=1:nt
 	% pressure project
 	[vxh,vyh,p] = pres_proj(vx,vy);
 
+	[num2str(dot(vx,Bm1.*vx)),', ',num2str(dot(vy,Bm1.*vy))]
 	% vis
 	if(mod(it,floor(0.1*nt))==0)
-		quiver(xm1,ym1,vx,vy);
-		title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
-		pause(0.05)
+	  	quiver(xm1,ym1,vx,vy); grid on;
+	   	title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
+		[num2str(dot(vx,Bm1.*vx)),', ',num2str(dot(vy,Bm1.*vy))]
+		pause(0.01)
 	end
 
 end
 %-------------------------------------------------------------------------------
 % post process
+
+xlabel('x');
+ylabel('y');
+surf(xm1,ym1,vx); shading interp; view(2); title('$$v_x$$'); pause;
+surf(xm1,ym1,vy); shading interp; view(2); title('$$v_y$$');
 
 %===============================================================================
 %
@@ -284,10 +292,10 @@ end
 
 % BDF - explicit OP
 function [Fu] = bdf_expl(uexp,ubexp,mskexp,f,cx,cy)
-	Fu = -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d...
+	Fu = -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % advection
 				,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	Fu = Fu + mass(f,mskexp,Bmd,Jr1d,Js1d); % forcing
-	Fu = Fu - hmhltz(ubexp,mskexp);         % dirichlet BC
+	Fu = Fu + mass(f,mskexp,Bmd,Jr1d,Js1d);              % forcing
+	Fu = Fu - hmhltz(ubexp,1+0*mskexp);                  % dirichlet BC
 end
 
 % viscous solve
@@ -301,7 +309,7 @@ function [ux,uy] = visc_slv(rhsvx,rhsvy)
 	elseif(slv==1) % FDM
 	
 		ux = fdm(rhsvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi);
-		uy = fdm(rhsvy,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvyi);
+		uy = fdm(rhsvy,Bm1i,Srvy,Ssvy,Srivy,Ssivy,Rxvy,Ryvy,Lvyi);
 	
 	elseif(slv==2) % direct solve
 	
@@ -330,7 +338,7 @@ function [ux,uy,p] = pres_proj(cx,cy,q0)
 	% E(p-p0) = g;
 
 	if(slv==1) % FDM
-		p = fdm(g,Bm2i,Srp,Ssp,Srip,Ssip,Irm2,Irm2,Lpi);
+		p = fdm(g,Bm2i,Srp,Ssp,Srip,Ssip,Irm2,Ism2,Lpi);
 	end
 
 	[px,py] = vgradp(p,mskvx,mskvy,Bm2,Jr12,Js12...
