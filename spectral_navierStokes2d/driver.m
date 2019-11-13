@@ -12,16 +12,15 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- periodic BC with mask operator
-%	- 
-%	- test
+%	- embed periodicity in mask using R'*R
+%	- failing as nx1/ny1 > 40
 %
 %-------------------------------------------------------------------------------
 
 clf; format compact; format shorte;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 128;
+ny1 = 128;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -31,8 +30,8 @@ nyd = ceil(1.5*ny1);
 [zsm1,wsm1] = zwgll(ny1-1);
 [zrm2,wrm2] = zwgll(nx2-1);
 [zsm2,wsm2] = zwgll(ny2-1);
-[zrmd,wrmd] = zwgl (nxd  );
-[zsmd,wsmd] = zwgl (nyd  );
+[zrmd,wrmd] = zwgll(nxd-1);
+[zsmd,wsmd] = zwgll(nyd-1);
 
 Drm1 = dhat(zrm1);
 Dsm1 = dhat(zsm1);
@@ -73,7 +72,7 @@ Js1d = interp_mat(zsmd,zsm1);
 
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu = 1e-1;
+nu = 1/2e1;
 vx = 0*xm1; vx(:,end) = 1;
 vy = 0*xm1;
 p  = 0*xm2;
@@ -89,9 +88,61 @@ Ryvx = Ism1(2:end-1,:);                  % dir-dir
 Rxvy = Irm1(2:end-1,:);                  % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
 
-T   = 2.0;
+ifconv = 1;
+ifpres = 1;
+
+T   = 10; % T=0 ==> steady
 CFL = 0.5;
 
+%------------------------------------------------------------------------------
+% kovazny flow
+ifkov = 1;
+if(ifkov);
+
+a = -0.5; lx = 2.5; ly=2.0;
+xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); %linear mapping
+[xm1,ym1] = ndgrid(xx,yy);
+xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1);
+[xm2,ym2] = ndgrid(xx,yy);
+xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1);
+[xmd,ymd] = ndgrid(xx,yy);  
+
+Re = 40;
+Re = 10;
+nu = 1/Re;
+
+% boundary conditions
+vx = 0*xm1;
+vy = 0*xm1;
+
+%left face: x=-0.5
+[ue,ve] = kov_ex(xm1(1,:),ym1(1,:),Re);
+vx(1,:) = ue;
+vy(1,:) = ve;
+
+%right face: x=2.0
+[ue,ve] = kov_ex(xm1(end,:),ym1(end,:),Re);
+vx(end,:) = ue;
+vy(end,:) = ve;
+
+%bottom face: y=-0.5
+[ue,ve] = kov_ex(xm1(:,1),ym1(:,1),Re);
+vx(:,1) = ue;
+vy(:,1) = ve;
+
+%top face: y=1.5
+[ue,ve] = kov_ex(xm1(:,end),ym1(:,end),Re);
+vx(:,end) = ue;
+vy(:,end) = ve;
+
+%p  = 0*xm2; no pressure BCs in this case
+fx = 0*xm1; % forcing
+fy = 0*xm1;
+
+% BC --> smooth functinos
+vxb = vx;
+vyb = vy;
+end
 %------------------------------------------------------------------------------
 % setup
 
@@ -102,6 +153,8 @@ nt = floor(T/dt);
 dt = T/nt;
 t  = 0;
 it = 0; % time step
+
+if(T==0); nt=1;dt=0; end; % steady
 
 % BDF3-EXT3
 a = zeros(3,1);
@@ -242,6 +295,7 @@ for it=1:nt
 
 	if(it<=3)
 		[a,b] = bdfext3([t t1 t2 t3]);
+		if(T  ==0) a=0*a; b=0*b; a(1)=1;   end; % steady
 		if(slv==1) Lvxi = 1    ./ (b(1) + Lvx); % FDM
 		           Lvyi = 1    ./ (b(1) + Lvy);
 		           Lpi  = b(1) ./         Lp  ; end;
@@ -260,12 +314,13 @@ for it=1:nt
 	% pressure project
 	[vxh,vyh,p] = pres_proj(vx,vy);
 
-	[num2str(dot(vx,Bm1.*vx)),', ',num2str(dot(vy,Bm1.*vy))]
 	% vis
-	if(mod(it,floor(0.1*nt))==0)
+	%if(it<100) [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)],end
+	if(mod(it,100)==0)
 	  	quiver(xm1,ym1,vx,vy); grid on;
+		%surf(xm1,ym1,vx); view(2); shading interp; title('$$v_x$$');colorbar;
 	   	title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
-		[num2str(dot(vx,Bm1.*vx)),', ',num2str(dot(vy,Bm1.*vy))]
+		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
 		pause(0.01)
 	end
 
@@ -273,31 +328,38 @@ end
 %-------------------------------------------------------------------------------
 % post process
 
+surf(xm1,ym1,vx); view(2); shading interp; title('$$v_x$$');colorbar;
 xlabel('x');
 ylabel('y');
-surf(xm1,ym1,vx); shading interp; view(2); title('$$v_x$$'); pause;
-surf(xm1,ym1,vy); shading interp; view(2); title('$$v_y$$');
+pause;
+surf(xm1,ym1,vy); shading interp; view(2); title('$$v_y$$');colorbar;
 
 %===============================================================================
 %
 %	Helper functions
 %
 %===============================================================================
-
 % BDF - implicit OP
 function [Hu] =  hmhltz(uhm,mskhm)
 	Hu = nu * lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 	Hu = Hu + b(1)*mass(uhm,mskhm,Bmd,Jr1d,Js1d);
 end
 
+%-------------------------------------------------------------------------------
 % BDF - explicit OP
 function [Fu] = bdf_expl(uexp,ubexp,mskexp,f,cx,cy)
-	Fu = -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % advection
+	if(ifconv);
+		Fu = -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % convection
 				,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	else
+		Fu = 0*xm1;
+	end
+
 	Fu = Fu + mass(f,mskexp,Bmd,Jr1d,Js1d);              % forcing
 	Fu = Fu - hmhltz(ubexp,1+0*mskexp);                  % dirichlet BC
 end
 
+%-------------------------------------------------------------------------------
 % viscous solve
 function [ux,uy] = visc_slv(rhsvx,rhsvy)
 
@@ -328,14 +390,13 @@ function [ux,uy] = visc_slv(rhsvx,rhsvy)
 
 end
 
+%-------------------------------------------------------------------------------
 % pressure project
 
-function [ux,uy,p] = pres_proj(cx,cy,q0)
+function [ux,uy,p] = pres_proj(cx,cy)
 
 	g = -qdivu(cx,cy,mskvx,mskvy,Bm2,Jr12,Js12,Irm1...
 			  ,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-
-	% E(p-p0) = g;
 
 	if(slv==1) % FDM
 		p = fdm(g,Bm2i,Srp,Ssp,Srip,Ssip,Irm2,Ism2,Lpi);
@@ -354,11 +415,11 @@ end
 % Conjugate Gradient
 %
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
+%-------------------------------------------------------------------------------
 
 function cg_pres()
 
 end
-%-------------------------------------------------------------------------------
 function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 	x = x0;
 	r = b - hmhltz(x,msk); % r = b - Ax
