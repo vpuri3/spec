@@ -20,8 +20,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 64;
+ny1 = 128;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -61,24 +61,24 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %-------------------------------------------------------------------------------
-% data
+% heat eqn test
 
-slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
+slv=1;                           % solver --> 0: CG, 1: FDM
 
 % viscosity (velocity, passive scalar)
 visc0 = 1/2e1;
-visc1 = 1e-0;
+visc1 = 1e-3;
 
 % initial condition
 vx  = 0*xm1;
 vy  = 0*xm1;
-ps  = 0*xm1;
+ps  = 0*xm1; ps(:,end)=1;
 pr  = 0*xm2;
 
 % forcing
 fvx  = 0*xm1;
 fvy  = 0*xm1;
-fps  = sin(pi*xm1).*sin(pi*ym1);
+fps  = 0*xm1;
 
 % BC
 vxb = vx;
@@ -92,15 +92,16 @@ Ryvy = Ism1(2:end-1,:);                  % dir-dir
 Rxps = Irm1(2:end-1,:); % ps             % dir-dir
 Ryps = Ism1(2:end-1,:);                  % dir-dir
 
-xperiodic = 0;
-yperiodic = 0;
+ifxperiodic = 0;
+ifyperiodic = 0;
 
-ifvel  = 0; % evolve velocity field
-ifconv = 0; % advect velocity field
-ifpres = 0;
-ifps   = 1; % evolve passive scalar per advection diffusion
+ifvel  = 0;    % evolve velocity field
+ifconv = 0;    % advect velocity field
+ifpres = 0;    % project velocity field onto a div-free subspace
+ifps   = 1;    % evolve passive scalar per advection diffusion
 
-T   = 0;    % T=0 ==> steady
+% T=0 ==> steady
+T   = 1.0;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -111,7 +112,6 @@ dx = min(min(diff(xm1)));
 dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
-t  = 0;
 
 if(T==0); nt=1;dt=0; end; % steady
 
@@ -262,7 +262,7 @@ for it=1:nt
 
  	fvx1 = bdf_expl(vx1,vxb,visc0,mskvx,fvx,vx,vy) + prx;
  	fvy1 = bdf_expl(vy1,vyb,visc0,mskvy,fvy,vx,vy) + pry;
- 	fps1 = bdf_expl(ps1,vyb,visc1,mskps,fps,vx,vy);
+ 	fps1 = bdf_expl(ps1,psb,visc1,mskps,fps,vx,vy);
 
 	% BDF rhs
 	bvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
@@ -289,8 +289,8 @@ for it=1:nt
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	  	%quiver(xm1,ym1,vx,vy); grid on;
 		%[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
-		surf(xm1,ym1,ps);
-	   	title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
+		surf(xm1,ym1,ps); shading interp
+	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 		pause(0.01)
 	end
 
@@ -300,17 +300,10 @@ end
 %-------------------------------------------------------------------------------
 % post process
 
-surf(xm1,ym1,ps);
-title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
+['timestepping done']
 
-['timestepping done'], pause
-
-ue = fps /2/pi/pi;
-
-surf(xm1,ym1,ps-ue);
-xlabel('x');
-ylabel('y');
-title(['error']);
+surf(xm1,ym1,ps); shading interp
+title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 
 %===============================================================================
 %
