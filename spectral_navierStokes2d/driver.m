@@ -13,7 +13,8 @@ function driver
 %
 %	/todo
 %	- embed periodicity in mask using R'*R
-%	- failing as nx1/ny1 > 40
+%	- Lid driven cavity failing as nx1/ny1 > 40
+%	- verify possion, heat equation, and advection diffusion
 %
 %-------------------------------------------------------------------------------
 
@@ -91,7 +92,7 @@ Ryvy = Ism1(2:end-1,:);                  % dir-dir
 ifconv = 1;
 ifpres = 1;
 
-T   = 10; % T=0 ==> steady
+T   = 1; % T=0 ==> steady
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -107,7 +108,7 @@ xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1);
 xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1);
 [xmd,ymd] = ndgrid(xx,yy);  
 
-Re = 40;
+Re = 40;  % target Re
 Re = 10;
 nu = 1/Re;
 
@@ -115,27 +116,22 @@ nu = 1/Re;
 vx = 0*xm1;
 vy = 0*xm1;
 
+% exact solution
+[vxe,vye] = kov_ex(xm1,ym1,Re);
 %left face: x=-0.5
-[ue,ve] = kov_ex(xm1(1,:),ym1(1,:),Re);
-vx(1,:) = ue;
-vy(1,:) = ve;
-
+vx(1,:) = vxe(1,:);
+vy(1,:) = vye(1,:);
 %right face: x=2.0
-[ue,ve] = kov_ex(xm1(end,:),ym1(end,:),Re);
-vx(end,:) = ue;
-vy(end,:) = ve;
-
+vx(end,:) = vxe(end,:);
+vy(end,:) = vye(end,:);
 %bottom face: y=-0.5
-[ue,ve] = kov_ex(xm1(:,1),ym1(:,1),Re);
-vx(:,1) = ue;
-vy(:,1) = ve;
-
+vx(:,1) = vxe(:,1);
+vy(:,1) = vye(:,1);
 %top face: y=1.5
-[ue,ve] = kov_ex(xm1(:,end),ym1(:,end),Re);
-vx(:,end) = ue;
-vy(:,end) = ve;
+vx(:,end) = vxe(:,end);
+vy(:,end) = vye(:,end);
 
-%p  = 0*xm2; no pressure BCs in this case
+p  = 0*xm2; % no pressure BCs in this case
 fx = 0*xm1; % forcing
 fy = 0*xm1;
 
@@ -143,6 +139,10 @@ fy = 0*xm1;
 vxb = vx;
 vyb = vy;
 end
+
+ifconv = 1;
+ifpres = 0;
+
 %------------------------------------------------------------------------------
 % setup
 
@@ -228,7 +228,7 @@ if(slv==1) % fast diagonalization setup
 	[Ssp,Lsp] = eig(Asp,Bsp); Ssip = inv(Ssp);
 	Lp = diag(Lrp) + diag(Lsp)';
 	
-elseif(slv==2) % exact solve setup
+elseif(slv==2) % direct solve setup
 
 	% operators
 	R  = sparse(kron(Ry,Rx));
@@ -255,21 +255,23 @@ t0 = 0;
 t1 = 0;
 t2 = 0;
 % vx
-vx0 = vx*0;
-vx1 = vx0;
-vx2 = vx0;
+vx0  = vx*0;
+vx1  = vx0;
+vx2  = vx0;
 fvx1 = vx0;
 fvx2 = vx0;
 % vy
-vy0 = vx0;
-vy1 = vx0;
-vy2 = vx0;
+vy0  = vx0;
+vy1  = vx0;
+vy2  = vx0;
 fvy1 = vx0;
 fvy2 = vx0;
 
-quiver(xm1,ym1,vx,vy);grid on;
-[num2str(dot(vx,Bm1.*vx)),', ',num2str(dot(vy,Bm1.*vy))]
+['exact solution'   ], [dot(vxe,Bm1.*vx),dot(vye,Bm1.*vy)]
+['initial condition'], [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
+
 title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.01)
+quiver(xm1,ym1,vx,vy);grid on;
 
 for it=1:nt
 
@@ -300,7 +302,7 @@ for it=1:nt
 		           Lvyi = 1    ./ (b(1) + Lvy);
 		           Lpi  = b(1) ./         Lp  ; end;
 	end;
-	
+
 	% BDF rhs
 	rvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
 	rvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
@@ -312,17 +314,21 @@ for it=1:nt
 	vy  = vyh + vyb;
 
 	% pressure project
-	[vxh,vyh,p] = pres_proj(vx,vy);
+	if(ifpres); [vx,vy,p] = pres_proj(vx,vy); end;
 
 	% vis
 	%if(it<100) [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)],end
 	if(mod(it,100)==0)
-	  	quiver(xm1,ym1,vx,vy); grid on;
-		%surf(xm1,ym1,vx); view(2); shading interp; title('$$v_x$$');colorbar;
+		omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	  	%quiver(xm1,ym1,vx,vy); grid on;
+		surf(xm1,ym1,vx);
+		view(2); shading interp;
 	   	title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
 		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
 		pause(0.01)
 	end
+
+	if(blowup(vx,vy,p)) return; end;
 
 end
 %-------------------------------------------------------------------------------
@@ -348,15 +354,14 @@ end
 %-------------------------------------------------------------------------------
 % BDF - explicit OP
 function [Fu] = bdf_expl(uexp,ubexp,mskexp,f,cx,cy)
+	Fu = mass(f,mskexp,Bmd,Jr1d,Js1d);                          % forcing
+
 	if(ifconv);
-		Fu = -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % convection
-				,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	else
-		Fu = 0*xm1;
+		Fu = Fu -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % convection
+				       ,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	end
 
-	Fu = Fu + mass(f,mskexp,Bmd,Jr1d,Js1d);              % forcing
-	Fu = Fu - hmhltz(ubexp,1+0*mskexp);                  % dirichlet BC
+	Fu = Fu - hmhltz(ubexp,1+0*mskexp);                         % dirichlet BC
 end
 
 %-------------------------------------------------------------------------------
@@ -442,3 +447,4 @@ function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 end
 %===============================================================================
 end % driver
+%===============================================================================
