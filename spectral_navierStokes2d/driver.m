@@ -20,8 +20,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 128;
-ny1 = 128;
+nx1 = 32;
+ny1 = 32;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -56,14 +56,6 @@ Js1d = interp_mat(zsmd,zsm1);
 %-------------------------------------------------------------------------------
 % geometry
 
-[xrm1,xrp1,xsm1,xsp1,yrm1,yrp1,ysm1,ysp1] = qtrcirc(zrm1,zsm1);
-[xrm2,xrp2,xsm2,xsp2,yrm2,yrp2,ysm2,ysp2] = qtrcirc(zrm2,zsm2);
-[xrmd,xrpd,xsmd,xspd,yrmd,yrpd,ysmd,yspd] = qtrcirc(zrmd,zsmd);
-
-[xm1,ym1] = gordonhall2d(xrm1,xrp1,xsm1,xsp1,yrm1,yrp1,ysm1,ysp1,zrm1,zsm1);
-[xm2,ym2] = gordonhall2d(xrm2,xrp2,xsm2,xsp2,yrm2,yrp2,ysm2,ysp2,zrm2,zsm2);
-[xmd,ymd] = gordonhall2d(xrmd,xrpd,xsmd,xspd,yrmd,yrpd,ysmd,yspd,zrmd,zsmd);
-
 [xm1,ym1] = ndgrid(zrm1,zsm1);
 [xm2,ym2] = ndgrid(zrm2,zsm2);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
@@ -75,17 +67,18 @@ slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
 % viscosity (velocity, passive scalar)
 visc0 = 1/2e1;
-visc1 = 1/2e1;
+visc1 = 1e-0;
 
 % initial condition
 vx  = 0*xm1;
 vy  = 0*xm1;
+ps  = 0*xm1;
 pr  = 0*xm2;
 
 % forcing
 fvx  = 0*xm1;
 fvy  = 0*xm1;
-fps  = 0*xm1;
+fps  = sin(pi*xm1).*sin(pi*ym1);
 
 % BC
 vxb = vx;
@@ -102,12 +95,12 @@ Ryps = Ism1(2:end-1,:);                  % dir-dir
 xperiodic = 0;
 yperiodic = 0;
 
-ifvel  = 1; % evolve velocity field
-ifconv = 1; % advect velocity field
-ifpres = 1;
-ifps   = 1; % evolve passive scalar (per advection diffusion)
+ifvel  = 0; % evolve velocity field
+ifconv = 0; % advect velocity field
+ifpres = 0;
+ifps   = 1; % evolve passive scalar per advection diffusion
 
-T   = 1;    % T=0 ==> steady
+T   = 0;    % T=0 ==> steady
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -119,13 +112,8 @@ dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
 t  = 0;
-it = 0; % time step
 
 if(T==0); nt=1;dt=0; end; % steady
-
-% BDF3-EXT3
-a = zeros(3,1);
-b = zeros(4,1);
 
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
@@ -210,12 +198,14 @@ if(slv==1) % fast diagonalization setup
 
 	[Srpr,Lrpr] = eig(Arpr,Brpr); Sripr = inv(Srpr);
 	[Sspr,Lspr] = eig(Aspr,Bspr); Ssipr = inv(Sspr);
-	Lp = diag(Lrp) + diag(Lsp)';
+	Lpr = diag(Lrpr) + diag(Lspr)';
 
 end
 
 %------------------------------------------------------------------------------
 % time advance
+
+time = 0;
 
 % initialize histories
 time0 = 0;
@@ -245,11 +235,22 @@ for it=1:nt
 	% update histories
 	time3=time2; time2=time1; time1 = time;
 
-	pr0=pr;
+	time = time + dt;
+
+	if(it<=3)
+		[a,b] = bdfext3([time time1 time2 time3]);
+		if(T  ==0) a=0*a; b=0*b; a(1)=1;   end; % steady
+		if(slv==1) Lvxi = 1    ./ (b(1) + Lvx); % FDM
+		           Lvyi = 1    ./ (b(1) + Lvy);
+		           Lpsi = 1    ./ (b(1) + Lps);
+		           Lpri = b(1) ./         Lpr ; end;
+	end;
 
 	vx3=vx2; vx2=vx1; vx1 = vx;
 	vy3=vy2; vy2=vy1; vy1 = vy;
 	ps3=ps2; ps2=ps1; ps1 = ps;
+
+	pr0=pr;
 
 	fvx3=fvx2; fvx2=fvx1;
 	fvy3=fvy2; fvy2=fvy1;
@@ -259,29 +260,18 @@ for it=1:nt
 	[prx,pry] = vgradp(pr0,mskvx,mskvy,Bm2,Jr12,Js12,Irm1,Ism1,Drm1...
 				             ,Dsm1,rxm1,rym1,sxm1,sym1);
 
- 	fvx1 = bdf_expl(vx1,vxb,mskvx,fvx,vx,vy) + px;
- 	fvy1 = bdf_expl(vy1,vyb,mskvy,fvy,vx,vy) + py;
- 	fps1 = bdf_expl(ps1,vyb,mskps,fps,vx,vy);
-
-	time = time + dt;
-
-	if(it<=3)
-		[a,b] = bdfext3([time time1 time2 time3]);
-		if(T  ==0) a=0*a; b=0*b; a(1)=1;   end; % steady
-		if(slv==1) Lvxi = 1    ./ (b(1) + Lvx); % FDM
-		           Lvyi = 1    ./ (b(1) + Lvy);
-		           Lpsi = 1    ./ (b(1) + Lps);
-		           Lpi  = b(1) ./         Lp  ; end;
-	end;
+ 	fvx1 = bdf_expl(vx1,vxb,visc0,mskvx,fvx,vx,vy) + prx;
+ 	fvy1 = bdf_expl(vy1,vyb,visc0,mskvy,fvy,vx,vy) + pry;
+ 	fps1 = bdf_expl(ps1,vyb,visc1,mskps,fps,vx,vy);
 
 	% BDF rhs
-	rvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
-	rvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
-	rps = a(1)*fps1 +a(2)*fps2 +a(3)*fps3 - Bm1.*(b(2)*ps1+b(3)*ps2+b(4)*ps3);
+	bvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
+	bvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
+	bps = a(1)*fps1 +a(2)*fps2 +a(3)*fps3 - Bm1.*(b(2)*ps1+b(3)*ps2+b(4)*ps3);
 
 	if(ifvel)
-		vxh = hmhltz_slv(rvx,mskvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi,slv);
-		vyh = hmhltz_slv(rvy,mskvy,Bm1i,Srvy,Ssvy,Srivy,Ssivy,Rxvy,Ryvy,Lvyi,slv);
+		vxh = hmhltz_slv(bvx,mskvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi,slv);
+		vyh = hmhltz_slv(bvy,mskvy,Bm1i,Srvy,Ssvy,Srivy,Ssivy,Rxvy,Ryvy,Lvyi,slv);
 
 		vx  = vxh + vxb;
 		vy  = vyh + vyb;
@@ -290,7 +280,7 @@ for it=1:nt
 		if(ifpres); [vx,vy,p] = pres_proj(vx,vy); end;
 	end
 	if(ifps)
-		psh = hmhltz_slv(rps,mskps,Bm1i,Srps,Ssps,Srips,Ssips,Rxps,Ryps,Lpsi,slv);
+		psh = hmhltz_slv(bps,mskps,Bm1i,Srps,Ssps,Srips,Ssips,Rxps,Ryps,Lpsi,slv);
 		ps  = psh + psb;
 	end
 
@@ -311,8 +301,16 @@ end
 % post process
 
 surf(xm1,ym1,ps);
+title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
+
+['timestepping done'], pause
+
+ue = fps /2/pi/pi;
+
+surf(xm1,ym1,ps-ue);
 xlabel('x');
 ylabel('y');
+title(['error']);
 
 %===============================================================================
 %
@@ -320,20 +318,20 @@ ylabel('y');
 %
 %===============================================================================
 % BDF - implicit OP
-function [Hu] =  hmhltz(uhm,mskhm)
-	Hu = nu * lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+function [Hu] =  hmhltz(uhm,mskhm,vischm)
+	Hu = vischm * lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 	Hu = Hu + b(1)*mass(uhm,mskhm,Bmd,Jr1d,Js1d);
 end
 
 %-------------------------------------------------------------------------------
 % BDF - explicit OP
-function [Fu] = bdf_expl(uexp,ubexp,mskexp,fexp,cx,cy)
+function [Fu] = bdf_expl(uexp,ubexp,viscexp,mskexp,fexp,cx,cy)
 	Fu = mass(fexp,mskexp,Bmd,Jr1d,Js1d);                       % forcing
 	if(ifconv);
 		Fu = Fu -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % convection
 				       ,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	end
-	Fu = Fu - hmhltz(ubexp,1+0*mskexp);                         % dirichlet BC
+	Fu = Fu - hmhltz(ubexp,1+0*mskexp,viscexp);                 % dirichlet BC
 end
 
 
@@ -346,7 +344,7 @@ function [ux,uy,p] = pres_proj(cx,cy)
 			  ,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 	if(slv==1) % FDM
-		p = fdm(g,Bm2i,Srp,Ssp,Srip,Ssip,Irm2,Ism2,Lpi);
+		p = fdm(g,Bm2i,Srpr,Sspr,Sripr,Ssipr,Irm2,Ism2,Lpri);
 	end
 
 	[px,py] = vgradp(p,mskvx,mskvy,Bm2,Jr12,Js12...
@@ -355,7 +353,7 @@ function [ux,uy,p] = pres_proj(cx,cy)
 	ux = cx + 1/(b(1))*Bm1i.*px;
 	uy = cy + 1/(b(1))*Bm1i.*py;
 
-	p = p + p0;
+	p = p + pr0;
 
 end
 %===============================================================================

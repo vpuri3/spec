@@ -8,7 +8,7 @@ function [u] = hmhltz_slv(b,msk,Bi,Sr,Ss,Sri,Ssi,Rx,Ry,Li,slv)
 	
 	elseif(slv==1) % FDM
 	
-		u = fdm(rhs,Bm1i,Sr,Ss,Sri,Ssi,Rx,Ry,Li);
+		u = fdm(b,Bi,Sr,Ss,Sri,Ssi,Rx,Ry,Li);
 	end	
 end
 
