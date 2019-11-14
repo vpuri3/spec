@@ -61,9 +61,10 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %-------------------------------------------------------------------------------
-% heat eqn test
+% data
 
-slv=1;                           % solver --> 0: CG, 1: FDM
+% solver --> 0: CG, 1: FDM
+slv=1;
 
 % viscosity (velocity, passive scalar)
 visc0 = 1/2e1;
@@ -85,6 +86,7 @@ vxb = vx;
 vyb = vy;
 psb = ps;
 
+% Restrictions
 Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
 Ryvx = Ism1(2:end-1,:);                  % dir-dir
 Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
@@ -232,9 +234,7 @@ fps2 = vx0;
 
 for it=1:nt
 
-	% update histories
 	time3=time2; time2=time1; time1 = time;
-
 	time = time + dt;
 
 	if(it<=3)
@@ -246,30 +246,23 @@ for it=1:nt
 		           Lpri = b(1) ./         Lpr ; end;
 	end;
 
-	vx3=vx2; vx2=vx1; vx1 = vx;
-	vy3=vy2; vy2=vy1; vy1 = vy;
-	ps3=ps2; ps2=ps1; ps1 = ps;
-
-	pr0=pr;
-
-	fvx3=fvx2; fvx2=fvx1;
-	fvy3=fvy2; fvy2=fvy1;
-	fps3=fps2; fps2=fps1;
-
-	% pressure forcing
-	[prx,pry] = vgradp(pr0,mskvx,mskvy,Bm2,Jr12,Js12,Irm1,Ism1,Drm1...
-				             ,Dsm1,rxm1,rym1,sxm1,sym1);
-
- 	fvx1 = bdf_expl(vx1,vxb,visc0,mskvx,fvx,vx,vy) + prx;
- 	fvy1 = bdf_expl(vy1,vyb,visc0,mskvy,fvy,vx,vy) + pry;
- 	fps1 = bdf_expl(ps1,psb,visc1,mskps,fps,vx,vy);
-
-	% BDF rhs
-	bvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
-	bvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
-	bps = a(1)*fps1 +a(2)*fps2 +a(3)*fps3 - Bm1.*(b(2)*ps1+b(3)*ps2+b(4)*ps3);
-
 	if(ifvel)
+		vx3=vx2; vx2=vx1; vx1 = vx;
+		vy3=vy2; vy2=vy1; vy1 = vy;
+						  pr1 = pr;
+
+		% pressure forcing
+		if(ifpres) [pr1x,pr1y] = vgradp(pr1,mskvx,mskvy,Bm2,Jr12,Js12,Irm1...
+									   ,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		else pr1x = 0*xm1; pr1y = 0*xm1;
+		end
+		
+		fvx3=fvx2; fvx2=fvx1; fvx1=bdf_expl(vx1,vxb,visc0,mskvx,fvx,vx,vy)+pr1x;
+		fvy3=fvy2; fvy2=fvy1; fvy1=bdf_expl(vy1,vyb,visc0,mskvy,fvy,vx,vy)+pr1y;
+
+		bvx = a(1)*fvx1+a(2)*fvx2+a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
+		bvy = a(1)*fvy1+a(2)*fvy2+a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
+
 		vxh = hmhltz_slv(bvx,mskvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi,slv);
 		vyh = hmhltz_slv(bvy,mskvy,Bm1i,Srvy,Ssvy,Srivy,Ssivy,Rxvy,Ryvy,Lvyi,slv);
 
@@ -277,9 +270,14 @@ for it=1:nt
 		vy  = vyh + vyb;
 
 		% /todo check for data corruption
-		if(ifpres); [vx,vy,p] = pres_proj(vx,vy); end;
+		if(ifpres); [vx,vy,pr] = pres_proj(vx,vy,pr1); end;
 	end
 	if(ifps)
+		 ps3= ps2;  ps2= ps1;  ps1 = ps;
+		fps3=fps2; fps2=fps1; fps1 = bdf_expl(ps1,psb,visc1,mskps,fps,vx,vy);
+
+		bps = a(1)*fps1+a(2)*fps2+a(3)*fps3 - Bm1.*(b(2)*ps1+b(3)*ps2+b(4)*ps3);
+
 		psh = hmhltz_slv(bps,mskps,Bm1i,Srps,Ssps,Srips,Ssips,Rxps,Ryps,Lpsi,slv);
 		ps  = psh + psb;
 	end
@@ -300,7 +298,7 @@ end
 %-------------------------------------------------------------------------------
 % post process
 
-['timestepping done']
+['Finished Timestepping']
 
 surf(xm1,ym1,ps); shading interp
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
@@ -312,7 +310,7 @@ title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 %===============================================================================
 % BDF - implicit OP
 function [Hu] =  hmhltz(uhm,mskhm,vischm)
-	Hu = vischm * lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+	Hu =    vischm*lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 	Hu = Hu + b(1)*mass(uhm,mskhm,Bmd,Jr1d,Js1d);
 end
 
@@ -331,7 +329,7 @@ end
 %-------------------------------------------------------------------------------
 % pressure project
 
-function [ux,uy,p] = pres_proj(cx,cy)
+function [ux,uy,p] = pres_proj(cx,cy,pr_prev)
 
 	g = -qdivu(cx,cy,mskvx,mskvy,Bm2,Jr12,Js12,Irm1...
 			  ,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -346,7 +344,7 @@ function [ux,uy,p] = pres_proj(cx,cy)
 	ux = cx + 1/(b(1))*Bm1i.*px;
 	uy = cy + 1/(b(1))*Bm1i.*py;
 
-	p = p + pr0;
+	p = p + pr_prev;
 
 end
 %===============================================================================
