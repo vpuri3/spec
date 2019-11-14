@@ -69,79 +69,46 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %-------------------------------------------------------------------------------
-% lid driven cavity
+% data
 
 slv=1;                           % solver --> 0: CG, 1: FDM, 2: direct
 
-nu = 1/2e1;
-vx = 0*xm1; vx(:,end) = 1;
-vy = 0*xm1;
-p  = 0*xm2;
-fx = 0*xm1; % forcing
-fy = 0*xm1;
+% viscosity (velocity, passive scalar)
+visc0 = 1/2e1;
+visc1 = 1/2e1;
 
-% BC --> smooth functinos
+% initial condition
+vx  = 0*xm1;
+vy  = 0*xm1;
+pr  = 0*xm2;
+
+% forcing
+fvx  = 0*xm1;
+fvy  = 0*xm1;
+fps  = 0*xm1;
+
+% BC
 vxb = vx;
 vyb = vy;
+psb = ps;
 
-Rxvx = Irm1(2:end-1,:);                  % dir-dir
+Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
 Ryvx = Ism1(2:end-1,:);                  % dir-dir
-Rxvy = Irm1(2:end-1,:);                  % dir-dir
+Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
+Rxps = Irm1(2:end-1,:); % ps             % dir-dir
+Ryps = Ism1(2:end-1,:);                  % dir-dir
 
-ifconv = 1;
+xperiodic = 0;
+yperiodic = 0;
+
+ifvel  = 1; % evolve velocity field
+ifconv = 1; % advect velocity field
 ifpres = 1;
+ifps   = 1; % evolve passive scalar (per advection diffusion)
 
-T   = 1; % T=0 ==> steady
+T   = 1;    % T=0 ==> steady
 CFL = 0.5;
-
-%------------------------------------------------------------------------------
-% kovazny flow
-ifkov = 1;
-if(ifkov);
-
-a = -0.5; lx = 2.5; ly=2.0;
-xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); %linear mapping
-[xm1,ym1] = ndgrid(xx,yy);
-xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1);
-[xm2,ym2] = ndgrid(xx,yy);
-xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1);
-[xmd,ymd] = ndgrid(xx,yy);  
-
-Re = 40;  % target Re
-Re = 10;
-nu = 1/Re;
-
-% boundary conditions
-vx = 0*xm1;
-vy = 0*xm1;
-
-% exact solution
-[vxe,vye] = kov_ex(xm1,ym1,Re);
-%left face: x=-0.5
-vx(1,:) = vxe(1,:);
-vy(1,:) = vye(1,:);
-%right face: x=2.0
-vx(end,:) = vxe(end,:);
-vy(end,:) = vye(end,:);
-%bottom face: y=-0.5
-vx(:,1) = vxe(:,1);
-vy(:,1) = vye(:,1);
-%top face: y=1.5
-vx(:,end) = vxe(:,end);
-vy(:,end) = vye(:,end);
-
-p  = 0*xm2; % no pressure BCs in this case
-fx = 0*xm1; % forcing
-fy = 0*xm1;
-
-% BC --> smooth functinos
-vxb = vx;
-vyb = vy;
-end
-
-ifconv = 1;
-ifpres = 0;
 
 %------------------------------------------------------------------------------
 % setup
@@ -175,6 +142,7 @@ Bm2i= 1 ./ Bm2;
 % mask
 mskvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
 mskvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
+mskps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 
 % laplace operator setup
 g11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
@@ -183,10 +151,10 @@ g22 = Bmd .* (sxmd.*sxmd + symd.*symd);
 
 if(slv==1) % fast diagonalization setup
 
-	% Velocity
 	Lx = max(max(xm1))-min(min(xm1));
 	Ly = max(max(ym1))-min(min(ym1));
 	
+	% Velocity
 	Brv = (Lx/2)*diag(wrm1);
 	Bsv = (Ly/2)*diag(wsm1);
 	Drv = (2/Lx)*Drm1;
@@ -206,54 +174,53 @@ if(slv==1) % fast diagonalization setup
 	
 	[Srvx,Lrvx] = eig(Arvx,Brvx); Srivx = inv(Srvx);
 	[Ssvx,Lsvx] = eig(Asvx,Bsvx); Ssivx = inv(Ssvx);
-	Lvx = nu * (diag(Lrvx) + diag(Lsvx)');
+	Lvx = visc0 * (diag(Lrvx) + diag(Lsvx)');
 	
 	[Srvy,Lrvy] = eig(Arvy,Brvy); Srivy = inv(Srvy);
 	[Ssvy,Lsvy] = eig(Asvy,Bsvy); Ssivy = inv(Ssvy);
-	Lvy = nu * (diag(Lrvy) + diag(Lsvy)');
+	Lvy = visc0 * (diag(Lrvy) + diag(Lsvy)');
+
+	% Passive Scalar
+	
+	Brps = Rxps*Brv*Rxps';
+	Bsps = Ryps*Bsv*Ryps';
+	Arps = Rxps*Arv*Rxps';
+	Asps = Ryps*Asv*Ryps';
+	
+	Brps = Rxps*Brv*Rxps';
+	Bsps = Ryps*Bsv*Ryps';
+	Arps = Rxps*Arv*Rxps';
+	Asps = Ryps*Asv*Ryps';
+	
+	[Srps,Lrps] = eig(Arps,Brps); Srips = inv(Srps);
+	[Ssps,Lsps] = eig(Asps,Bsps); Ssips = inv(Ssps);
+	Lps = visc1 * (diag(Lrps) + diag(Lsps)');
 	
 	% Pressure
-	Brp  = diag(wrm2);
-	Bsp  = diag(wsm2);
-	Brvi = diag(1./wrm1);
-	Bsvi = diag(1./wsm1);
+	Brpr = (Lx/2)*diag(wrm2);
+	Bspr = (Ly/2)*diag(wsm2);
+	Brvi = (2/Lx)*diag(1./wrm1);
+	Bsvi = (2/Ly)*diag(1./wsm1);
 	
-	Brp = Brp*Jr12*(Drv*Brvi*Drv')*Jr12'*Brp;
-	Arp = Brp*Jr12*(    Brvi     )*Jr12'*Brp;
+	Brpr = Brpr*Jr12*(Drv*Brvi*Drv')*Jr12'*Brpr;
+	Arpr = Brpr*Jr12*(    Brvi     )*Jr12'*Brpr;
 	
-	Bsp = Bsp*Js12*(Dsv*Bsvi*Dsv')*Js12'*Bsp;
-	Asp = Bsp*Js12*(    Bsvi     )*Js12'*Bsp;
+	Bspr = Bspr*Js12*(Dsv*Bsvi*Dsv')*Js12'*Bspr;
+	Aspr = Bspr*Js12*(    Bsvi     )*Js12'*Bspr;
 
-	[Srp,Lrp] = eig(Arp,Brp); Srip = inv(Srp);
-	[Ssp,Lsp] = eig(Asp,Bsp); Ssip = inv(Ssp);
+	[Srpr,Lrpr] = eig(Arpr,Brpr); Sripr = inv(Srpr);
+	[Sspr,Lspr] = eig(Aspr,Bspr); Ssipr = inv(Sspr);
 	Lp = diag(Lrp) + diag(Lsp)';
-	
-elseif(slv==2) % direct solve setup
-
-	% operators
-	R  = sparse(kron(Ry,Rx));
-	J  = sparse(kron(Js1d,Jr1d));
-	B  = sparse(diag(reshape(Bm1,[nx1*ny1,1])));
-	Bd = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
-	
-	% laplace op
-	G11=sparse(diag(reshape(g11,[nxd*nyd,1]))); G11 = J'*G11*J;
-	G12=sparse(diag(reshape(g12,[nxd*nyd,1]))); G12 = J'*G12*J;
-	G22=sparse(diag(reshape(g22,[nxd*nyd,1]))); G22 = J'*G22*J;
-	G  = [G11 G12; G12 G22];
-	Dr = kron(Ism1,Drm1);
-	Ds = kron(Dsm1,Irm1);
-	D  = [Dr;Ds];
-	A  = D'*G*D;
 
 end
 
 %------------------------------------------------------------------------------
 % time advance
 
-t0 = 0;
-t1 = 0;
-t2 = 0;
+% initialize histories
+time0 = 0;
+time1 = 0;
+time2 = 0;
 % vx
 vx0  = vx*0;
 vx1  = vx0;
@@ -266,79 +233,86 @@ vy1  = vx0;
 vy2  = vx0;
 fvy1 = vx0;
 fvy2 = vx0;
-
-['exact solution'   ], [dot(vxe,Bm1.*vx),dot(vye,Bm1.*vy)]
-['initial condition'], [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
-
-title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);pause(0.01)
-quiver(xm1,ym1,vx,vy);grid on;
+% ps
+ps0  = vx0;
+ps1  = vx0;
+ps2  = vx0;
+fps1 = vx0;
+fps2 = vx0;
 
 for it=1:nt
 
 	% update histories
-	t3=t2; t2=t1; t1 = t;
+	time3=time2; time2=time1; time1 = time;
 
-	p0=p;
+	pr0=pr;
 
 	vx3=vx2; vx2=vx1; vx1 = vx;
 	vy3=vy2; vy2=vy1; vy1 = vy;
+	ps3=ps2; ps2=ps1; ps1 = ps;
 
 	fvx3=fvx2; fvx2=fvx1;
 	fvy3=fvy2; fvy2=fvy1;
+	fps3=fps2; fps2=fps1;
 
 	% pressure forcing
-	[px,py] = vgradp(p0,mskvx,mskvy,Bm2,Jr12,Js12,Irm1,Ism1,Drm1...
+	[prx,pry] = vgradp(pr0,mskvx,mskvy,Bm2,Jr12,Js12,Irm1,Ism1,Drm1...
 				             ,Dsm1,rxm1,rym1,sxm1,sym1);
 
- 	fvx1 = bdf_expl(vx,vxb,mskvx,fx,vx,vy) + px;
- 	fvy1 = bdf_expl(vy,vyb,mskvy,fy,vx,vy) + py;
+ 	fvx1 = bdf_expl(vx1,vxb,mskvx,fvx,vx,vy) + px;
+ 	fvy1 = bdf_expl(vy1,vyb,mskvy,fvy,vx,vy) + py;
+ 	fps1 = bdf_expl(ps1,vyb,mskps,fps,vx,vy);
 
-	t = t + dt;
+	time = time + dt;
 
 	if(it<=3)
-		[a,b] = bdfext3([t t1 t2 t3]);
+		[a,b] = bdfext3([time time1 time2 time3]);
 		if(T  ==0) a=0*a; b=0*b; a(1)=1;   end; % steady
 		if(slv==1) Lvxi = 1    ./ (b(1) + Lvx); % FDM
 		           Lvyi = 1    ./ (b(1) + Lvy);
+		           Lpsi = 1    ./ (b(1) + Lps);
 		           Lpi  = b(1) ./         Lp  ; end;
 	end;
 
 	% BDF rhs
 	rvx = a(1)*fvx1 +a(2)*fvx2 +a(3)*fvx3 - Bm1.*(b(2)*vx1+b(3)*vx2+b(4)*vx3);
 	rvy = a(1)*fvy1 +a(2)*fvy2 +a(3)*fvy3 - Bm1.*(b(2)*vy1+b(3)*vy2+b(4)*vy3);
+	rps = a(1)*fps1 +a(2)*fps2 +a(3)*fps3 - Bm1.*(b(2)*ps1+b(3)*ps2+b(4)*ps3);
 
-	% viscous solve
-	[vxh,vyh] = visc_slv(rvx,rvy);
+	if(ifvel)
+		vxh = hmhltz_slv(rvx,mskvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi,slv);
+		vyh = hmhltz_slv(rvy,mskvy,Bm1i,Srvy,Ssvy,Srivy,Ssivy,Rxvy,Ryvy,Lvyi,slv);
 
-	vx  = vxh + vxb;
-	vy  = vyh + vyb;
+		vx  = vxh + vxb;
+		vy  = vyh + vyb;
 
-	% pressure project
-	if(ifpres); [vx,vy,p] = pres_proj(vx,vy); end;
+		% /todo check for data corruption
+		if(ifpres); [vx,vy,p] = pres_proj(vx,vy); end;
+	end
+	if(ifps)
+		psh = hmhltz_slv(rps,mskps,Bm1i,Srps,Ssps,Srips,Ssips,Rxps,Ryps,Lpsi,slv);
+		ps  = psh + psb;
+	end
 
 	% vis
-	%if(it<100) [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)],end
 	if(mod(it,100)==0)
-		omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	  	%quiver(xm1,ym1,vx,vy); grid on;
-		surf(xm1,ym1,vx);
-		view(2); shading interp;
+		%[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
+		surf(xm1,ym1,ps);
 	   	title(['t=',num2str(t),', Step',num2str(it),' CFL=',num2str(CFL)]);
-		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
 		pause(0.01)
 	end
 
-	if(blowup(vx,vy,p)) return; end;
+	if(blowup(vx,vy,pr,ps)) return; end;
 
 end
 %-------------------------------------------------------------------------------
 % post process
 
-surf(xm1,ym1,vx); view(2); shading interp; title('$$v_x$$');colorbar;
+surf(xm1,ym1,ps);
 xlabel('x');
 ylabel('y');
-pause;
-surf(xm1,ym1,vy); shading interp; view(2); title('$$v_y$$');colorbar;
 
 %===============================================================================
 %
@@ -353,47 +327,15 @@ end
 
 %-------------------------------------------------------------------------------
 % BDF - explicit OP
-function [Fu] = bdf_expl(uexp,ubexp,mskexp,f,cx,cy)
-	Fu = mass(f,mskexp,Bmd,Jr1d,Js1d);                          % forcing
-
+function [Fu] = bdf_expl(uexp,ubexp,mskexp,fexp,cx,cy)
+	Fu = mass(fexp,mskexp,Bmd,Jr1d,Js1d);                       % forcing
 	if(ifconv);
 		Fu = Fu -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % convection
 				       ,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	end
-
 	Fu = Fu - hmhltz(ubexp,1+0*mskexp);                         % dirichlet BC
 end
 
-%-------------------------------------------------------------------------------
-% viscous solve
-function [ux,uy] = visc_slv(rhsvx,rhsvy)
-
-	if(slv==0) % CG
-	
-		ux = cg_visc(rhsvx,mskvx,0*rhsvx,1e-8,1e3);
-		uy = cg_visc(rhsvy,mskvx,0*rhsvy,1e-8,1e3);
-	
-	elseif(slv==1) % FDM
-	
-		ux = fdm(rhsvx,Bm1i,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi);
-		uy = fdm(rhsvy,Bm1i,Srvy,Ssvy,Srivy,Ssivy,Rxvy,Ryvy,Lvyi);
-	
-	elseif(slv==2) % direct solve
-	
-		rslv = reshape(rslv,[nx1*ny1,1]);
-
-		S    = R *(b(1)*B + nu*A)*R';
-		rslv = R *rslv;
-		uslv = S \rslv;
-		uslv = R'*uslv;
-		rslv = R'*rslv;
-		
-		uslv = reshape(uslv,[nx1,ny1]);
-		rslv = reshape(rslv,[nx1,ny1]);
-	
-	end
-
-end
 
 %-------------------------------------------------------------------------------
 % pressure project
@@ -415,35 +357,6 @@ function [ux,uy,p] = pres_proj(cx,cy)
 
 	p = p + p0;
 
-end
-%-------------------------------------------------------------------------------
-% Conjugate Gradient
-%
-% ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
-%-------------------------------------------------------------------------------
-
-function cg_pres()
-
-end
-function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
-	x = x0;
-	r = b - hmhltz(x,msk); % r = b - Ax
-	rsqold=dot(r,r);
-	
-	if(sqrt(rsqold) < tol); rsqnew=rsqold; return; end;
-	
-	p=r;
-	for k=1:maxiter
-		Ap = hmhltz(p,msk); % Ap = A*p
-		al = rsqold / dot(p,Ap);
-		x  = x + al*p;
-		r  = r - al*Ap;
-		rsqnew=dot(r,r); if(sqrt(rsqnew) < tol); return; end;
-		be = rsqnew / rsqold;
-		p  = r + be*p;
-		rsqold = rsqnew;
-	end
-	['cg iter:',num2str(k),', residual:',num2str(sqrt(rsqnew))]
 end
 %===============================================================================
 end % driver
