@@ -20,8 +20,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 64;
-ny1 = 128;
+nx1 = 32;
+ny1 = 32;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -77,9 +77,9 @@ ps  = 0*xm1; ps(:,end)=1;
 pr  = 0*xm2;
 
 % forcing
-fvx  = 0*xm1;
-fvy  = 0*xm1;
-fps  = 0*xm1;
+fvx = 0*xm1;
+fvy = 0*xm1;
+fps = 0*xm1;
 
 % BC
 vxb = vx;
@@ -98,9 +98,9 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 ifvel  = 0;    % evolve velocity field
-ifconv = 0;    % advect velocity field
-ifpres = 0;    % project velocity field onto a div-free subspace
 ifps   = 1;    % evolve passive scalar per advection diffusion
+ifconv = 0;    % advect fields per (vx,vy)
+ifpres = 0;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
 T   = 1.0;
@@ -177,11 +177,6 @@ if(slv==1) % fast diagonalization setup
 	Arps = Rxps*Arv*Rxps';
 	Asps = Ryps*Asv*Ryps';
 	
-	Brps = Rxps*Brv*Rxps';
-	Bsps = Ryps*Bsv*Ryps';
-	Arps = Rxps*Arv*Rxps';
-	Asps = Ryps*Asv*Ryps';
-	
 	[Srps,Lrps] = eig(Arps,Brps); Srips = inv(Srps);
 	[Ssps,Lsps] = eig(Asps,Bsps); Ssips = inv(Ssps);
 	Lps = visc1 * (diag(Lrps) + diag(Lsps)');
@@ -243,7 +238,7 @@ for it=1:nt
 		if(slv==1) Lvxi = 1    ./ (b(1) + Lvx); % FDM
 		           Lvyi = 1    ./ (b(1) + Lvy);
 		           Lpsi = 1    ./ (b(1) + Lps);
-		           Lpri = b(1) ./         Lpr ; end;
+		           Lpri = b(1) ./ (       Lpr); end;
 	end;
 
 	if(ifvel)
@@ -269,7 +264,6 @@ for it=1:nt
 		vx  = vxh + vxb;
 		vy  = vyh + vyb;
 
-		% /todo check for data corruption
 		if(ifpres); [vx,vy,pr] = pres_proj(vx,vy,pr1); end;
 	end
 	if(ifps)
@@ -284,6 +278,7 @@ for it=1:nt
 
 	% vis
 	if(mod(it,100)==0)
+		% pseudocolor subplots for viewing velocity field
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	  	%quiver(xm1,ym1,vx,vy); grid on;
 		%[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
@@ -324,7 +319,6 @@ function [Fu] = bdf_expl(uexp,ubexp,viscexp,mskexp,fexp,cx,cy)
 	end
 	Fu = Fu - hmhltz(ubexp,1+0*mskexp,viscexp);                 % dirichlet BC
 end
-
 
 %-------------------------------------------------------------------------------
 % pressure project
