@@ -12,7 +12,6 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- periodic BC
 %
 %-------------------------------------------------------------------------------
 
@@ -90,7 +89,41 @@ T   = 5.0;
 CFL = 0.5;
 
 %-------------------------------------------------------------------------------
+% eg: Pure Convection
+
+% diffusivity
+visc = 0e-0;
+
+% initial condition
+u = sin(pi*x1);
+
+% velocity
+v = 1+0*x1;
+
+% forcing
+f = 0+0*x1;
+
+% BC
+ub = u;
+
+% Restrictions
+R = I1(2:end-1,:);   % dir-dir
+
+ifperiodic = 1;
+
+% T=0 ==> steady
+T   = 5.0;
+CFL = 0.5;
+
+%-------------------------------------------------------------------------------
 % setup
+
+% mask
+msk = diag(R'*R);
+
+if(ifperiodic)
+	R = [eye(n1-1),[1;zeros(n1-2,1)]];
+end;
 
 % time stepper
 dx = min(diff(x1));
@@ -114,9 +147,6 @@ J1d = interp_mat(zd,z1); % n1 to nd
 B1  = Lx*diag(w1);
 Bd  = Lx*diag(wd);
 B1i = (1/Lx)*diag(1./w1);
-
-% mask
-msk = diag(R'*R);
 
 % solve
 A1 = D1'*B1*D1;
