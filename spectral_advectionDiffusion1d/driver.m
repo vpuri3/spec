@@ -12,7 +12,7 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- embed periodicity in mask using R'*R
+%	- periodic BC
 %
 %-------------------------------------------------------------------------------
 
@@ -24,113 +24,96 @@ nd = ceil(1.5*n1);
 [z1,w1] = zwgll(n1-1);
 [zd,wd] = zwgll(nd-1);
 
-D1 = dhat(z1);
-Dd = dhat(zd);
-
 I1 = eye(n1);
 Id = eye(nd);
-
-J1d = interp_mat(zd,z1); % n1 to nd
 
 %-------------------------------------------------------------------------------
 % geometry
 
-[x1] = ndgrid(z1);
-[xd] = ndgrid(zd);
+Lx = 1;
+
+[x1] = Lx*ndgrid(z1);
+[xd] = Lx*ndgrid(zd);
 
 %-------------------------------------------------------------------------------
 % data
 
-% solver --> 0: CG, 1: FDM
-slv=1;
-
-% viscosity (velocity, passive scalar)
-visc0 = 1/2e1;
-visc1 = 1e-3;
+% diffusivity
+visc = 1e-3;
 
 % initial condition
-v  = 0*xm1;
-s  = 0*xm1; s(:,end)=1;
+u = 0*x1; u(end)=1;
+
+% velocity
+v = 0*x1;
 
 % forcing
-fv = 0*x1;
-fs = 0*x1;
+f = 0*x1;
+f = sin(pi*x1);
 
 % BC
-vb = v;
-sb = s;
+ub = u;
 
 % Restrictions
-Rv = I1(2:end-1,:); % vx             % dir-dir
-Rs = I1(2:end-1,:); % ps             % dir-dir
+R = I1(2:end-1,:);   % dir-dir
 
-ifxperiodic = 0;
-
-ifvel  = 0;    % evolve velocity field
-ifs    = 1;    % evolve passive scalar per advection diffusion
-ifconv = 0;    % advect fields per (vx,vy)
+ifperiodic = 0;
 
 % T=0 ==> steady
-T   = 1.0;
+T   = 0.0;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
 % setup
 
 % time stepper
-dx = min(min(diff(x1)));
+dx = min(diff(x1));
 dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
 
 if(T==0); nt=1;dt=0; end; % steady
 
-% mass
-B1 = w1;
-Bd = wd;
-B1i= 1 ./ B1;
+% diff matrix
+Dr1 = dhat(z1);
+Drd = dhat(zd);
+
+D1 = (1/Lx)*Dr1;
+Dd = (1/Lx)*Drd;
+
+% interp matrix
+J1d = interp_mat(zd,z1); % n1 to nd
+
+% mass matrices
+B1  = Lx*diag(w1);
+Bd  = Lx*diag(wd);
+B1i = (1/Lx)*diag(1./w1);
 
 % mask
-mskv = diag(Rv'*Rv);
-msks = diag(Rs'*Rs);
+msk = diag(R'*R);
 
-% direct solve
-
+% solve
 A1 = D1'*B1*D1;
 
-Bv = Rv*B1*Rv';
-Av = Rv*A1*Rv';
-
-Bs = Rs*B1*Rs';
-As = Rs*A1*Rs';
-
-[Sv,Lv] = eig(Av,Bv); Siv = inv(Sv);
-Lv = visc0 * diag(Lv);
-
-[Ss,Ls] = eig(As,Bs); Sis = inv(Ss);
-Ls = visc1 * diag(Ls);
+B = R*B1*R';
+A = R*A1*R';
 
 %------------------------------------------------------------------------------
 % time advance
 
+% initialize time
 time = 0;
 
 % initialize histories
 time0 = 0;
 time1 = 0;
 time2 = 0;
-% v
-v  = v*0;
-v  = v;
-v  = v;
-fv1 = v0;
-fv2 = v0;
-% s
-s0  = v0;
-s1  = v0;
-s2  = v0;
-fs1 = v0;
-fs2 = v0;
+
+u0 = 0*u;
+u1 = u0;
+u2 = u0;
+g1 = 0*R*u;
+g2 = g1;
 
 for it=1:nt
 
@@ -139,43 +122,31 @@ for it=1:nt
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
-		if(T  ==0) a=0*a; b=0*b; a(1)=1; end; % steady
-		if(slv==1) Lvi = 1    ./ (b(1) + Lv);
-		           Lsi = 1    ./ (b(1) + Ls); end
+		if(T==0) a=0*a; b=0*b; a(1)=1; end; % steady
+		H = R*(b(1)*B1 + visc*A1)*R';
 	end;
 
-	if(ifvel)
-		 v3= v2;  v2= v1;  v1= vx;
-		fv3=fv2; fv2=fv1; fv1=bdf_expl(vx1,vxb,visc0,mskvx,fvx,vx,vy);
+	u3=u2; u2=u1; u1= u;
+	g3=g2; g2=g1;
+	
+    g1 = R*mass(f,B1) - R*advect(u,v,Bd,D1,J1d);
 
-		bv = a(1)*fv1+a(2)*fv2+a(3)*fv3 - B1.*(b(2)*v1+b(3)*v2+b(4)*v3);
-		vh = hmhltz_slv(bv,mskv,Bi,Srvx,Ssvx,Srivx,Ssivx,Rxvx,Ryvx,Lvxi,slv);
-		v  = vh + vb;
+	r =      a(1)*g1+a(2)*g2+a(3)*g3;
+	r = r - R*mass(b(2)*u1+b(3)*u2+b(4)*u3,B1);
+	r = r - R*hmhltz(ub,b(1),visc,B1,D1);
 
-		if(ifpres); [vx,vy,pr] = pres_proj(vx,vy,pr1); end;
-	end
-	if(ifps)
-		 s3= s2;  s2= s1;  s1 = s;
-		fs3=fs2; fs2=fs1; fs1 = bdf_expl(s1,sb,visc1,mskps,fps,v);
+	uh = H \ r;
 
-		bs = a(1)*fps1+a(2)*fps2+a(3)*fps3 - Bm1.*(b(2)*ps1+b(3)*ps2+b(4)*ps3);
-
-		sh = hmhltz_slv(bs,msks,B1i,Srps,Ssps,Srips,Ssips,Rxps,Ryps,Lpsi,slv);
-		s  = sh + sb;
-	end
+	u  = R'*uh + ub;
 
 	% vis
 	if(mod(it,100)==0)
-		% pseudocolor subplots for viewing velocity field
-		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	  	%quiver(xm1,ym1,vx,vy); grid on;
-		%[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
-		surf(xm1,ym1,ps); shading interp
+		plot(x1,u,'linewidth',2.0);
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 		pause(0.01)
 	end
 
-	if(blowup(v,s)) return; end;
+	if(blowup(u)) return; end;
 
 end
 %-------------------------------------------------------------------------------
@@ -183,30 +154,8 @@ end
 
 ['Finished Timestepping']
 
-surf(xm1,ym1,ps); shading interp
+plot(x1,u,'linewidth',2.0);
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-
-%===============================================================================
-%
-%	Helper functions
-%
-%===============================================================================
-% BDF - implicit OP
-function [Hu] =  hmhltz(uhm,mskhm,vischm)
-	Hu =    vischm*lapl(uhm,mskhm,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-	Hu = Hu + b(1)*mass(uhm,mskhm,Bmd,Jr1d,Js1d);
-end
-
-%-------------------------------------------------------------------------------
-% BDF - explicit OP
-function [Fu] = bdf_expl(uexp,ubexp,viscexp,mskexp,fexp,cx,cy)
-	Fu = mass(fexp,mskexp,Bmd,Jr1d,Js1d);                       % forcing
-	if(ifconv);
-		Fu = Fu -advect(uexp,mskexp,cx,cy,Bmd,Irm1,Ism1,Jr1d... % convection
-				       ,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	end
-	Fu = Fu - hmhltz(ubexp,1+0*mskexp,viscexp);                 % dirichlet BC
-end
 
 %===============================================================================
 end % driver

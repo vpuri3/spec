@@ -1,18 +1,12 @@
 %
-%   (\vect{v},\vect{c} \cdot \grad(u))
+%   (v,c*u_x)
 %
-function [w] = advect(u,msk,cx,Bmd,J,Dr);
+function [Cu] = advect(u,c,Bd,D,J);
 
-uu = mask(u,msk);
+uxd = J*D*u;
+cd  = J*c;
+Cud = Bd .* (cd.*uxd);
 
-[ux] = grad(uu,Dx);
-
-uxd = J*ux;
-cxd = J*cx;
-
-w = Bmd .* (cxd.*uxd);
-w = J'*w;
-
-w = mask(w,msk);
+Cu = J'*Cud;
 
 end
