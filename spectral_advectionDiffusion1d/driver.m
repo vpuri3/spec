@@ -36,10 +36,10 @@ Lx = 1;
 [xd] = Lx*ndgrid(zd);
 
 %-------------------------------------------------------------------------------
-% data
+% eg: diffusing boundary data into domain
 
 % diffusivity
-visc = 1e-3;
+visc = 1e-1;
 
 % initial condition
 u = 0*x1; u(end)=1;
@@ -49,7 +49,6 @@ v = 0*x1;
 
 % forcing
 f = 0*x1;
-f = sin(pi*x1);
 
 % BC
 ub = u;
@@ -60,10 +59,37 @@ R = I1(2:end-1,:);   % dir-dir
 ifperiodic = 0;
 
 % T=0 ==> steady
-T   = 0.0;
+T   = 5.0;
 CFL = 0.5;
 
-%------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
+% eg: Convection DIffusion
+
+% diffusivity
+visc = 1e-1;
+
+% initial condition
+u = 0*x1;
+
+% velocity
+v = 1+0*x1;
+
+% forcing
+f = 1+0*x1;
+
+% BC
+ub = u;
+
+% Restrictions
+R = I1(2:end-1,:);   % dir-dir
+
+ifperiodic = 0;
+
+% T=0 ==> steady
+T   = 5.0;
+CFL = 0.5;
+
+%-------------------------------------------------------------------------------
 % setup
 
 % time stepper
@@ -143,7 +169,7 @@ for it=1:nt
 	if(mod(it,100)==0)
 		plot(x1,u,'linewidth',2.0);
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-		pause(0.01)
+		pause(0.01);
 	end
 
 	if(blowup(u)) return; end;
