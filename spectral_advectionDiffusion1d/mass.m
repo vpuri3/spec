@@ -1,8 +1,8 @@
 %
 %     (v,u)
 %
-function [w] = mass(u,B);
+function [Bu] = mass(u,B);
 
-w = B*u;
+Bu = B*u;
 
 end
