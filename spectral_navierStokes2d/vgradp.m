@@ -1,7 +1,6 @@
 % DD'
 % (v,-\grad p) = [ (vxdx,p), (vydy,p) ]
-function [qx,qy] = vgradp(q,mskx,msky,Bp,Jrvp,Jsvp...
-						 ,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv)
+function [qx,qy] = vgradp(q,Bp,Jrvp,Jsvp,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv)
 
 	JBq = ABu(Jsvp',Jrvp',Bp .* q);
 

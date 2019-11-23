@@ -1,11 +1,9 @@
 %
-function [u] = fdm(b,Bi,Sr,Ss,Sri,Ssi,Rx,Ry,Di);
+function [u] = fdm(b,RBi,Sr,Ss,Sri,Ssi,Li);
 
-	u = b .* Bi;
-	u = ABu(Ry ,Rx ,u);
+	u = b .* RBi;
 	u = ABu(Ssi,Sri,u);
-	u = u .* Di;
+	u = u .* Li;
 	u = ABu(Ss ,Sr ,u);
-	u = ABu(Ry',Rx',u);
 
 end

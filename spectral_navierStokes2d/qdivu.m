@@ -1,13 +1,11 @@
-% DD
+%
 % (q,dudx+dvdy)
-function [q] = qdivu(ux,uy,mskx,msky,Bp,Jrvp,Jsvp,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv)
-	uux = mask(ux,mskx);
-	uuy = mask(uy,msky);
+function [DDu] = qdivu(ux,uy,Bp,Jrvp,Jsvp,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv)
 
-	[uxdx,uxdy] = grad(uux,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
-	[uydx,uydy] = grad(uuy,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
+	[uxdx,uxdy] = grad(ux,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
+	[uydx,uydy] = grad(uy,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
 
-	q = Bp .* ABu(Jsvp,Jrvp,uxdx + uydy);
+	DDu = Bp .* ABu(Jsvp,Jrvp,uxdx + uydy);
 end
 
 

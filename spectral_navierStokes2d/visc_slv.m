@@ -1,6 +1,6 @@
 %-------------------------------------------------------------------------------
 % viscous solve
-function [u] = hmhltz_slv(b,msk,Bi,Sr,Ss,Sri,Ssi,Rx,Ry,Li,slv)
+function [u] = visc_slv(b,RBi,Sr,Ss,Sri,Ssi,Li,slv)
 
 	if(slv==0) % CG
 	
@@ -8,7 +8,7 @@ function [u] = hmhltz_slv(b,msk,Bi,Sr,Ss,Sri,Ssi,Rx,Ry,Li,slv)
 	
 	elseif(slv==1) % FDM
 	
-		u = fdm(b,Bi,Sr,Ss,Sri,Ssi,Rx,Ry,Li);
+		u = fdm(b,RBi,Sr,Ss,Sri,Ssi,Li);
 	end	
 end
 
