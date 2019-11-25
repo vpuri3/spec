@@ -1,6 +1,7 @@
-%-------------------------------------------------------------------------------
+%
 % viscous solve
-function [u] = visc_slv(b,RBi,Sr,Ss,Sri,Ssi,Li,slv)
+%
+function [u] = visc_slv(b,Sr,Ss,Li,slv)
 
 	if(slv==0) % CG
 	
@@ -8,7 +9,7 @@ function [u] = visc_slv(b,RBi,Sr,Ss,Sri,Ssi,Li,slv)
 	
 	elseif(slv==1) % FDM
 	
-		u = fdm(b,RBi,Sr,Ss,Sri,Ssi,Li);
+		u = fdm(b,Sr,Ss,Li);
 	end	
 end
 

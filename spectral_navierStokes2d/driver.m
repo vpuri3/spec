@@ -73,7 +73,7 @@ visc1 = 1e-2;
 % initial condition
 vx  = 0*xm1; vx(:,end)=1;
 vy  = 0*xm1;
-ps  = 0*xm1; ps(:,end)=1;
+ps  = 0*xm1; ps = sin(pi*xm1).*sin(pi*ym1);
 pr  = 0*xm2;
 
 % forcing
@@ -97,12 +97,12 @@ Ryps = Ism1(2:end-1,:);                  % dir-dir
 ifxperiodic = 0;
 ifyperiodic = 0;
 
-ifvel  = 1;    % evolve velocity field
-ifps   = 0;    % evolve passive scalar per advection diffusion
-ifpres = 1;    % project velocity field onto a div-free subspace
+ifvel  = 0;    % evolve velocity field
+ifps   = 1;    % evolve passive scalar per advection diffusion
+ifpres = 0;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
-T   = 100.0;
+T   = 0.0;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -161,14 +161,16 @@ Bsvy = Ryvy*Bsv*Ryvy';
 Arvy = Rxvy*Arv*Rxvy';
 Asvy = Ryvy*Asv*Ryvy';
 
-RBivx = 1 ./ ABu(Ryvx,Rxvx,Bm1);
-[Srvx,Lrvx] = eig(Arvx,Brvx); Srivx = inv(Srvx);
-[Ssvx,Lsvx] = eig(Asvx,Bsvx); Ssivx = inv(Ssvx);
+[Srvx,Lrvx] = eig(Arvx,Brvx);
+[Ssvx,Lsvx] = eig(Asvx,Bsvx);
+for j=1:size(Srvx,1); Srvx(:,j)=Srvx(:,j)/sqrt(Srvx(:,j)'*Brvx*Srvx(:,j)); end
+for j=1:size(Ssvx,1); Ssvx(:,j)=Srvx(:,j)/sqrt(Ssvx(:,j)'*Bsvx*Ssvx(:,j)); end
 Lvx = visc0 * (diag(Lrvx) + diag(Lsvx)');
 
-RBivy = 1 ./ ABu(Ryvy,Rxvy,Bm1);
-[Srvy,Lrvy] = eig(Arvy,Brvy); Srivy = inv(Srvy);
-[Ssvy,Lsvy] = eig(Asvy,Bsvy); Ssivy = inv(Ssvy);
+[Srvy,Lrvy] = eig(Arvy,Brvy);
+[Ssvy,Lsvy] = eig(Asvy,Bsvy);
+for j=1:size(Srvy,1); Srvy(:,j)=Srvy(:,j)/sqrt(Srvy(:,j)'*Brvy*Srvy(:,j)); end
+for j=1:size(Ssvy,1); Ssvy(:,j)=Srvy(:,j)/sqrt(Ssvy(:,j)'*Bsvy*Ssvy(:,j)); end
 Lvy = visc0 * (diag(Lrvy) + diag(Lsvy)');
 
 % Passive Scalar
@@ -178,9 +180,10 @@ Bsps = Ryps*Bsv*Ryps';
 Arps = Rxps*Arv*Rxps';
 Asps = Ryps*Asv*Ryps';
 
-RBips = 1 ./ ABu(Ryps,Rxps,Bm1);
-[Srps,Lrps] = eig(Arps,Brps); Srips = inv(Srps);
+[Srps,Lrps] = eig(Arps,Brps); Srips = inv(Srps); RBips = 1 ./ ABu(Ryps,Rxps,Bm1);
 [Ssps,Lsps] = eig(Asps,Bsps); Ssips = inv(Ssps);
+for j=1:size(Srps,1); Srps(:,j)=Srps(:,j)/sqrt(Srps(:,j)'*Brps*Srps(:,j)); end
+for j=1:size(Ssps,1); Ssps(:,j)=Srps(:,j)/sqrt(Ssps(:,j)'*Bsps*Ssps(:,j)); end
 Lps = visc1 * (diag(Lrps) + diag(Lsps)');
 
 % Pressure
@@ -189,15 +192,18 @@ Bspr = (Ly/2)*diag(wsm2);
 Briv = (2/Lx)*diag(1./wrm1);
 Bsiv = (2/Ly)*diag(1./wsm1);
 
-Brpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
-Arpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
+Bspr = Bspr*Js12*(Dsv*(Ryvx'*Ryvx)*Bsiv*Dsv')*Js12'*Bspr; % attack vx
+Arpr = Brpr*Jr12*(    (Rxvx'*Rxvx)*Briv     )*Jr12'*Brpr;
 
-Bspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr;
-Aspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr;
+Aspr = Bspr*Js12*(    (Ryvy'*Ryvy)*Bsiv     )*Js12'*Bspr; % attack vy
+Brpr = Brpr*Jr12*(Drv*(Rxvy'*Rxvy)*Briv*Drv')*Jr12'*Brpr;
 
-[Srpr,Lrpr] = eig(Arpr,Brpr); Sripr = inv(Srpr);
-[Sspr,Lspr] = eig(Aspr,Bspr); Ssipr = inv(Sspr);
+[Srpr,Lrpr] = eig(Arpr,Brpr);
+[Sspr,Lspr] = eig(Aspr,Bspr);
+for j=1:size(Srpr,1); Srpr(:,j)=Srpr(:,j)/sqrt(Srpr(:,j)'*Brpr*Srpr(:,j)); end
+for j=1:size(Sspr,1); Sspr(:,j)=Srpr(:,j)/sqrt(Sspr(:,j)'*Bspr*Sspr(:,j)); end
 Lpr = diag(Lrpr) + diag(Lspr)';
+diag(Lrpr),diag(Lspr) % /todo misbehaving eigen values
 
 %------------------------------------------------------------------------------
 % time advance
@@ -309,7 +315,8 @@ for it=1:nt
 		bps = bps - hmhltz(psb,visc1,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 		bps = ABu(Ryps,Rxps,bps);
 
-		psh = visc_slv(bps,RBips,Srps,Ssps,Srips,Ssips,Lips,slv);
+		psh = visc_slv(bps,Srps,Ssps,Lips,slv);
+		psh = fdm1(bps,RBips,Srps,Ssps,Srips,Ssips,Lips);
 
 		ps  = ABu(Ryps',Rxps',psh) + psb;
 
@@ -320,8 +327,9 @@ for it=1:nt
 		% pseudocolor subplots for viewing velocity field
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	  	%quiver(xm1,ym1,vx,vy); grid on;
-		contour(xm1,ym1,vx,100); grid on;
-		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr)]
+		%contour(xm1,ym1,vx,100); grid on;
+		surf(xm1,ym1,ps); grid on;
+		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 		%surf(xm1,ym1,vx); shading interp
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 		pause(0.01)
@@ -335,8 +343,9 @@ end
 
 ['Finished Timestepping']
 
-quiver(xm1,ym1,vx,vy); grid on;
+surf(xm1,ym1,ps); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
+[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
 %===============================================================================
 end % driver
