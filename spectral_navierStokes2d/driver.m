@@ -12,6 +12,7 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
+%	- pressure blowing up
 %	- periodicity
 %	- testing
 %
@@ -66,11 +67,11 @@ Js1d = interp_mat(zsmd,zsm1);
 slv=1;
 
 % viscosity (velocity, passive scalar)
-visc0 = 1/2e1;
+visc0 = 1e-2;
 visc1 = 1e-2;
 
 % initial condition
-vx  = 0*xm1;
+vx  = 0*xm1; vx(:,end)=1;
 vy  = 0*xm1;
 ps  = 0*xm1; ps(:,end)=1;
 pr  = 0*xm2;
@@ -91,18 +92,17 @@ Ryvx = Ism1(2:end-1,:);                  % dir-dir
 Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
 Rxps = Irm1(2:end-1,:); % ps             % dir-dir
-Rxps = Irm1(1:end-0,:); % ps             % neu-neu
 Ryps = Ism1(2:end-1,:);                  % dir-dir
 
 ifxperiodic = 0;
 ifyperiodic = 0;
 
-ifvel  = 0;    % evolve velocity field
-ifps   = 1;    % evolve passive scalar per advection diffusion
+ifvel  = 1;    % evolve velocity field
+ifps   = 0;    % evolve passive scalar per advection diffusion
 ifpres = 1;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
-T   = 5.0;
+T   = 100.0;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -125,8 +125,8 @@ if(T==0); nt=1;dt=0; end; % steady
 Bm1  = Jm1 .* (wrm1*wsm1');
 Bm2  = Jm2 .* (wrm2*wsm2');
 Bmd  = Jmd .* (wrmd*wsmd');
-Bm1i = 1   ./ Bm1;
-Bm2i = 1   ./ Bm2;
+Bim1 = 1   ./ Bm1;
+Bim2 = 1   ./ Bm2;
 
 % mask
 mskvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
@@ -134,9 +134,9 @@ mskvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
 mskps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 
 % laplace operator setup
-g11 = Bmd .* (rxmd.*rxmd + rymd.*rymd);
-g12 = Bmd .* (rxmd.*sxmd + rymd.*symd);
-g22 = Bmd .* (sxmd.*sxmd + symd.*symd);
+g11 = Bmd .* (rxmd .* rxmd + rymd .* rymd);
+g12 = Bmd .* (rxmd .* sxmd + rymd .* symd);
+g22 = Bmd .* (sxmd .* sxmd + symd .* symd);
 
 %------------------------------------------------------------------------------
 % fast diagonalization setup
@@ -220,6 +220,8 @@ vy1  = vy0;
 vy2  = vy0;
 gvy1 = vy0;
 gvy2 = vy0;
+% pr
+pr1  = pr*0;
 % ps
 ps0  = ps*0;
 ps1  = ps0;
@@ -242,7 +244,7 @@ for it=1:nt
 	end;
 
 	if(ifvel)
-		% pr 
+		% pressure forcing
 		if(ifpres)
 			pr1 = pr;
 			[px,py] = vgradp(pr1,Bm2,Jr12,Js12,Irm1,Ism1...
@@ -252,7 +254,7 @@ for it=1:nt
 			py = 0*vy;
 		end
 
-		% vx
+		% vx solve
 		 vx3= vx2;  vx2= vx1;  vx1 = vx;
 		gvx3=gvx2; gvx2=gvx1;
 		
@@ -261,7 +263,7 @@ for it=1:nt
 
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
 		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bmd,Jr1d,Js1d);
-		bvx = bvx - hmhltz(vxb,visc1,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+		bvx = bvx - hmhltz(vxb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 		bvx = bvx + px;
 		bvx = ABu(Ryvx,Rxvx,bvx);
 
@@ -269,7 +271,7 @@ for it=1:nt
 
 		vx  = ABu(Ryvx',Rxvx',vxh) + vxb;
 
-		% vy
+		% vy solve
 		 vy3= vy2;  vy2= vy1;  vy1 = vy;
 		gvy3=gvy2; gvy2=gvy1;
 		
@@ -278,19 +280,20 @@ for it=1:nt
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
 		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bmd,Jr1d,Js1d);
-		bvy = bvy - hmhltz(vyb,visc1,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-		bvx = bvx + py;
+		bvy = bvy - hmhltz(vyb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+		bvy = bvy + py;
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
 		vyh = visc_slv(bvy,RBivy,Srvy,Ssvy,Srivy,Ssivy,Livy,slv);
 
 		vy  = ABu(Ryvy',Rxvy',vyh) + vyb;
 
-		% pressure
+		% pressure projection
 		if(ifpres)
  			[vx,vy,pr] = pres_proj(vx,vy,pr1...
+						,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 						,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
-						,Bm2i,Srpr,Sspr,Sripr,Ssipr,Lipr)
+						,Bim2,Srpr,Sspr,Sripr,Ssipr,Lipr);
 		end
 		
 	end
@@ -313,17 +316,18 @@ for it=1:nt
 	end
 
 	% vis
-	if(mod(it,100)==0)
+	if(mod(it,10)==0)
 		% pseudocolor subplots for viewing velocity field
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	  	%quiver(xm1,ym1,vx,vy); grid on;
-		%[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy)]
-		surf(xm1,ym1,ps); shading interp
+		contour(xm1,ym1,vx,100); grid on;
+		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr)]
+		%surf(xm1,ym1,vx); shading interp
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 		pause(0.01)
 	end
 
-	if(blowup(vx,vy,pr,ps)) return; end;
+	if(blowup(vx,vy,pr,ps));it, return; end;
 
 end
 %-------------------------------------------------------------------------------
@@ -331,7 +335,7 @@ end
 
 ['Finished Timestepping']
 
-surf(xm1,ym1,ps); shading interp
+quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 
 %===============================================================================

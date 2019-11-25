@@ -1,7 +1,7 @@
 %
 %     (v,-\del^2 u)
 %
-function [Au] = lapl(u,Jr,Js,Dr,Ds,G11,G12,G22);
+function [Au] = lapl(u,Jr,Js,Dr,Ds,G11,G12,G22)
 
 urd = ABu(Js,Jr*Dr,u);
 usd = ABu(Js*Ds,Jr,u);
