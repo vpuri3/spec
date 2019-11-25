@@ -21,8 +21,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 128;
-ny1 = 128;
+nx1 = 48;
+ny1 = 48;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -211,8 +211,8 @@ Lps = visc1 * (diag(Lrps) + diag(Lsps)');
 % Pressure
 Brpr = (Lx/2)*diag(wrm2);
 Bspr = (Ly/2)*diag(wsm2);
-Briv = diag(1./diag(Brpr));;
-Bsiv = diag(1./diag(Bspr));;
+Briv = diag(1./diag(Brv));;
+Bsiv = diag(1./diag(Bsv));;
 
 Mrvx = Rxvx'*Rxvx;
 Msvx = Ryvx'*Ryvx;
@@ -373,8 +373,8 @@ end
 ['Finished Timestepping']
 
 %surf(xm1,ym1,ps-pse); grid on;
-%surf(xm1,ym1,vx); grid on;
-quiver(xm1,ym1,vx,vy); grid on;
+surf(xm1,ym1,vx); grid on;
+%quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
