@@ -12,10 +12,8 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- verify pressure FDM
 %	- LDC blowing up
-%	- periodicity
-%	- more testing
+%	- verify pressure FDM
 %
 %-------------------------------------------------------------------------------
 
@@ -68,7 +66,7 @@ Js1d = interp_mat(zsmd,zsm1);
 slv=1;
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-4;
+visc0 = 1e-1;
 visc1 = 1e-0;
 
 % initial condition
@@ -99,8 +97,8 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 ifvel  = 1;    % evolve velocity field
-ifps   = 0;    % evolve passive scalar per advection diffusion
-ifpres = 1;    % project velocity field onto a div-free subspace
+ifps   = 1;    % evolve passive scalar per advection diffusion
+ifpres = 0;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
 T   = 10;
@@ -178,6 +176,20 @@ CFL = 0.5;
 end
 %------------------------------------------------------------------------------
 % setup
+
+if(ifxperiodic)
+	Rxvx = [eye(nx1-1),[1;zeros(nx1-2,1)]];
+	Rxvy = Rxvx;
+	Rxps = Rxvx;
+	Rxpr = [eye(nx2-1),[1;zeros(nx2-2,1)]];
+end;
+
+if(ifyperiodic)
+	Ryvx = [eye(ny1-1),[1;zeros(ny1-2,1)]];
+	Ryvy = Ryvx;
+	Ryps = Ryvx;
+	Rypr = [eye(ny2-1),[1;zeros(ny2-2,1)]];
+end;
 
 % time stepper
 dx = min(min(diff(xm1)));
@@ -408,11 +420,11 @@ for it=1:nt
 		%surf(xm1,ym1,omega); grid on;
 
 	  	%quiver(xm1,ym1,vx,vy); grid on;
-		contour(xm1,ym1,vx,100); grid on;
-		%surf(xm1,ym1,vx); grid on;
+		%contour(xm1,ym1,vx,100); grid on;
+		surf(xm1,ym1,vx); grid on;
 
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-		view(2)
+		%view(2)
 		pause(0.01)
 	end
 
