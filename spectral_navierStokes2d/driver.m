@@ -13,7 +13,7 @@ function driver
 %
 %	/todo
 %	- verify pressure FDM
-%	- kovazny not showing exponential convergence
+%	- LDC blowing up
 %	- periodicity
 %	- more testing
 %
@@ -21,8 +21,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 48;
-ny1 = 48;
+nx1 = 32;
+ny1 = 32;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -62,6 +62,54 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %-------------------------------------------------------------------------------
+% lid driven cavity
+
+% solver --> 0: CG, 1: FDM
+slv=1;
+
+% viscosity (velocity, passive scalar)
+visc0 = 1e-4;
+visc1 = 1e-0;
+
+% initial condition
+vx  = 0*xm1; vx(:,end)=1;
+vy  = 0*xm1;
+ps  = 0*xm1;
+pr  = 0*xm2;
+
+% forcing
+fvx = 0*xm1;
+fvy = 0*xm1;
+fps = 0*xm1; fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+
+% BC
+vxb = vx;
+vyb = vy;
+psb = ps;
+
+% Restrictions
+Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
+Ryvx = Ism1(2:end-1,:);                  % dir-dir
+Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
+Ryvy = Ism1(2:end-1,:);                  % dir-dir
+Rxps = Irm1(2:end-1,:); % ps             % dir-dir
+Ryps = Ism1(2:end-1,:);                  % dir-dir
+
+ifxperiodic = 0;
+ifyperiodic = 0;
+
+ifvel  = 1;    % evolve velocity field
+ifps   = 0;    % evolve passive scalar per advection diffusion
+ifpres = 1;    % project velocity field onto a div-free subspace
+
+% T=0 ==> steady
+T   = 10;
+CFL = 0.5;
+
+%-------------------------------------------------------------------------------
+ifkov = 0;
+
+if(ifkov)
 % kovazny
 
 % solver --> 0: CG, 1: FDM
@@ -124,9 +172,10 @@ ifps   = 0;    % evolve passive scalar per advection diffusion
 ifpres = 1;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
-T   = 2e1;
+T   = 10;
 CFL = 0.5;
 
+end
 %------------------------------------------------------------------------------
 % setup
 
@@ -214,16 +263,17 @@ Bspr = (Ly/2)*diag(wsm2);
 Briv = diag(1./diag(Brv));;
 Bsiv = diag(1./diag(Bsv));;
 
-Mrvx = Rxvx'*Rxvx;
 Msvx = Ryvx'*Ryvx;
-Mrvy = Rxvy'*Rxvy;
+Mrvx = Rxvx'*Rxvx;
+
 Msvy = Ryvy'*Ryvy;
+Mrvy = Rxvy'*Rxvy;
 
-Bspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vx
-Arpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
+Bspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vx
+Arpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
 
-Aspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vy
-Brpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
+Aspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vy
+Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
 
 [Srpr,Lrpr] = eig(Arpr,Brpr); % /todo misbehaving eigenvalues
 [Sspr,Lspr] = eig(Aspr,Bspr);
@@ -274,7 +324,7 @@ for it=1:nt
 		           Livy = 1    ./ (b(1) + Lvy);
 		           Lips = 1    ./ (b(1) + Lps);
 		           Lipr = b(1) ./ (       Lpr); end;
-	end;
+	end
 
 	if(ifvel)
 		% pressure forcing
@@ -350,7 +400,9 @@ for it=1:nt
 		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
 		% kovazny
-		[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy)),dot(pr,Bm2.*pr)]
+		if(ifkov)
+			[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy)),dot(pr,Bm2.*pr)]
+		end
 
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 		%surf(xm1,ym1,omega); grid on;
