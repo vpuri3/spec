@@ -12,16 +12,17 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- pressure blowing up
+%	- verify pressure FDM
+%	- kovazny not showing exponential convergence
 %	- periodicity
-%	- testing
+%	- more testing
 %
 %-------------------------------------------------------------------------------
 
 clf; format compact; format shorte;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 128;
+ny1 = 128;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -61,25 +62,46 @@ Js1d = interp_mat(zsmd,zsm1);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 
 %-------------------------------------------------------------------------------
-% data
+% kovazny
 
 % solver --> 0: CG, 1: FDM
 slv=1;
 
+a = -0.5; lx = 2.5; ly=2.0;
+xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); [xm1,ym1] = ndgrid(xx,yy);
+xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1); [xm2,ym2] = ndgrid(xx,yy);
+xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1); [xmd,ymd] = ndgrid(xx,yy);  
+
 % viscosity (velocity, passive scalar)
-visc0 = 1e-2;
-visc1 = 1e-0;
+Re = 40;
+visc0 = 1/Re;
+visc1 = 0e-0;
 
 % initial condition
-vx  = 0*xm1; vx(:,end)=1;
-vy  = 0*xm1;
-ps  = 0*xm1;
-pr  = 0*xm2;
+vx = 0*xm1;
+vy = 0*xm1;
+ps = 0*xm1;
+pr = 0*xm2;
+
+% exact solution
+[vxe,vye] = kov_ex(xm1,ym1,Re);
+%left face: x=-0.5
+vx(1,:) = vxe(1,:);
+vy(1,:) = vye(1,:);
+%right face: x=2.0
+vx(end,:) = vxe(end,:);
+vy(end,:) = vye(end,:);
+%bottom face: y=-0.5
+vx(:,1) = vxe(:,1);
+vy(:,1) = vye(:,1);
+%top face: y=1.5
+vx(:,end) = vxe(:,end);
+vy(:,end) = vye(:,end);
 
 % forcing
 fvx = 0*xm1;
 fvy = 0*xm1;
-fps = 0*xm1; fps = sin(pi*xm1).*sin(pi*ym1); ue = fps/2/pi/pi/visc1;
+fps = 0*xm1;
 
 % BC
 vxb = vx;
@@ -99,10 +121,10 @@ ifyperiodic = 0;
 
 ifvel  = 1;    % evolve velocity field
 ifps   = 0;    % evolve passive scalar per advection diffusion
-ifpres = 0;    % project velocity field onto a div-free subspace
+ifpres = 1;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
-T   = 2.0;
+T   = 2e1;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
@@ -163,14 +185,14 @@ Asvy = Ryvy*Asv*Ryvy';
 
 [Srvx,Lrvx] = eig(Arvx,Brvx);
 [Ssvx,Lsvx] = eig(Asvx,Bsvx);
-Srvx=Srvx/diag(sqrt(diag(Srvx'*Brvx*Srvx)));
-Ssvx=Ssvx/diag(sqrt(diag(Ssvx'*Bsvx*Ssvx)));
+Srvx=Srvx*diag(1./sqrt(diag(Srvx'*Brvx*Srvx)));
+Ssvx=Ssvx*diag(1./sqrt(diag(Ssvx'*Bsvx*Ssvx)));
 Lvx = visc0 * (diag(Lrvx) + diag(Lsvx)');
 
 [Srvy,Lrvy] = eig(Arvy,Brvy);
 [Ssvy,Lsvy] = eig(Asvy,Bsvy);
-Srvy=Srvy/diag(sqrt(diag(Srvy'*Brvy*Srvy)));
-Ssvy=Ssvy/diag(sqrt(diag(Ssvy'*Bsvy*Ssvy)));
+Srvy=Srvy*diag(1./sqrt(diag(Srvy'*Brvy*Srvy)));
+Ssvy=Ssvy*diag(1./sqrt(diag(Ssvy'*Bsvy*Ssvy)));
 Lvy = visc0 * (diag(Lrvy) + diag(Lsvy)');
 
 % Passive Scalar
@@ -182,28 +204,33 @@ Asps = Ryps*Asv*Ryps';
 
 [Srps,Lrps] = eig(Arps,Brps);
 [Ssps,Lsps] = eig(Asps,Bsps);
-Srps=Srps/diag(sqrt(diag(Srps'*Brps*Srps)));
-Ssps=Ssps/diag(sqrt(diag(Ssps'*Bsps*Ssps)));
+Srps=Srps*diag(1./sqrt(diag(Srps'*Brps*Srps)));
+Ssps=Ssps*diag(1./sqrt(diag(Ssps'*Bsps*Ssps)));
 Lps = visc1 * (diag(Lrps) + diag(Lsps)');
 
 % Pressure
 Brpr = (Lx/2)*diag(wrm2);
 Bspr = (Ly/2)*diag(wsm2);
-Briv = (2/Lx)*diag(1./wrm1);
-Bsiv = (2/Ly)*diag(1./wsm1);
+Briv = diag(1./diag(Brpr));;
+Bsiv = diag(1./diag(Bspr));;
 
-Bspr = Bspr*Js12*(Dsv*(Ryvx'*Ryvx)*Bsiv*Dsv')*Js12'*Bspr; % attack vx
-Arpr = Brpr*Jr12*(    (Rxvx'*Rxvx)*Briv     )*Jr12'*Brpr;
+Mrvx = Rxvx'*Rxvx;
+Msvx = Ryvx'*Ryvx;
+Mrvy = Rxvy'*Rxvy;
+Msvy = Ryvy'*Ryvy;
 
-Aspr = Bspr*Js12*(    (Ryvy'*Ryvy)*Bsiv     )*Js12'*Bspr; % attack vy
-Brpr = Brpr*Jr12*(Drv*(Rxvy'*Rxvy)*Briv*Drv')*Jr12'*Brpr;
+Bspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vx
+Arpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
 
-[Srpr,Lrpr] = eig(Arpr,Brpr);
+Aspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vy
+Brpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
+
+[Srpr,Lrpr] = eig(Arpr,Brpr); % /todo misbehaving eigenvalues
 [Sspr,Lspr] = eig(Aspr,Bspr);
-Srpr=Srpr/diag(sqrt(diag(Srpr'*Brpr*Srpr)));
-Sspr=Sspr/diag(sqrt(diag(Sspr'*Bspr*Sspr)));
+Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
+Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
 Lpr = diag(Lrpr) + diag(Lspr)';
-diag(Lrpr);diag(Lspr); % /todo misbehaving eigen values
+%diag(Lrpr),diag(Lspr)
 
 %------------------------------------------------------------------------------
 % time advance
@@ -297,7 +324,7 @@ for it=1:nt
  			[vx,vy,pr] = pres_proj(vx,vy,pr1...
 						,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 						,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
-						,Bim2,Srpr,Sspr,Sripr,Ssipr,Lipr);
+						,Bim2,Srpr,Sspr,Lipr);
 		end
 		
 	end
@@ -320,14 +347,20 @@ for it=1:nt
 
 	% vis
 	if(mod(it,50)==0)
-		% pseudocolor subplots for viewing velocity field
+		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
+
+		% kovazny
+		[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy)),dot(pr,Bm2.*pr)]
+
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		%surf(xm1,ym1,omega); grid on;
+
 	  	%quiver(xm1,ym1,vx,vy); grid on;
 		contour(xm1,ym1,vx,100); grid on;
-		%surf(xm1,ym1,ps); grid on;
-		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
-		%surf(xm1,ym1,vx); shading interp
+		%surf(xm1,ym1,vx); grid on;
+
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
+		view(2)
 		pause(0.01)
 	end
 
@@ -339,8 +372,9 @@ end
 
 ['Finished Timestepping']
 
-%surf(xm1,ym1,ps-ue); grid on;
-surf(xm1,ym1,vx); grid on;
+%surf(xm1,ym1,ps-pse); grid on;
+%surf(xm1,ym1,vx); grid on;
+quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
