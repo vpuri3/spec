@@ -49,16 +49,16 @@ Js1d = interp_mat(zsmd,zsm1);
 %----------------------------------------------------------------------
 % data
 
-solve=2;
+solve=1;
 % 0: CG (possion), 1: FDM (possion), 2: direct (advection-diffusion)
 
 nu= 1e-0;
 q = 0+0*xm1;
 cx= 0+0*xm1;
 cy= 0+0*xm1;
-f = sin(pi*xm1).*sin(pi*ym1);
 f = 1+0*xm1;
-%ue = 
+f = sin(pi*xm1).*sin(pi*ym1);
+ue = f/2/pi/pi/nu;
 
 % dirichlet BC
 ub = 0-0*xm1;
@@ -184,7 +184,7 @@ u = uh + ub;
 %----------------------------------------------------------------------
 % plt
 
-mesh(xm1,ym1,u);
+mesh(xm1,ym1,u-ue);
 xlabel('$$X$$');
 ylabel('$$Y$$');
 %----------------------------------------------------------------------
