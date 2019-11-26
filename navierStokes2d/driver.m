@@ -19,8 +19,8 @@ function driver
 
 clf; format compact; format shorte;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 48;
+ny1 = 48;
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -66,19 +66,19 @@ Js1d = interp_mat(zsmd,zsm1);
 slv=1;
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-1;
-visc1 = 1e-0;
+visc0 = 1e-2;
+visc1 = 1e-2;
 
 % initial condition
 vx  = 0*xm1; vx(:,end)=1;
 vy  = 0*xm1;
-ps  = 0*xm1;
+ps  = 0*xm1; ps(:,end)=1;
 pr  = 0*xm2;
 
 % forcing
 fvx = 0*xm1;
 fvy = 0*xm1;
-fps = 0*xm1; fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+fps = 0*xm1;%fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
 
 % BC
 vxb = vx;
@@ -97,15 +97,15 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 ifvel  = 1;    % evolve velocity field
-ifps   = 1;    % evolve passive scalar per advection diffusion
-ifpres = 0;    % project velocity field onto a div-free subspace
+ifpres = 1;    % project velocity field onto a div-free subspace
+ifps   = 0;    % evolve passive scalar per advection diffusion
 
 % T=0 ==> steady
 T   = 10;
 CFL = 0.5;
 
 %-------------------------------------------------------------------------------
-ifkov = 0;
+ifkov = 1;
 
 if(ifkov)
 % kovazny
@@ -177,6 +177,7 @@ end
 %------------------------------------------------------------------------------
 % setup
 
+% periodic BC
 if(ifxperiodic)
 	Rxvx = [eye(nx1-1),[1;zeros(nx1-2,1)]];
 	Rxvy = Rxvx;
@@ -190,6 +191,11 @@ if(ifyperiodic)
 	Ryps = Ryvx;
 	Rypr = [eye(ny2-1),[1;zeros(ny2-2,1)]];
 end;
+
+% mask
+mskvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
+mskvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
+mskps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 
 % time stepper
 dx = min(min(diff(xm1)));
@@ -210,11 +216,6 @@ Bm2  = Jm2 .* (wrm2*wsm2');
 Bmd  = Jmd .* (wrmd*wsmd');
 Bim1 = 1   ./ Bm1;
 Bim2 = 1   ./ Bm2;
-
-% mask
-mskvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)';
-mskvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
-mskps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 
 % laplace operator setup
 g11 = Bmd .* (rxmd .* rxmd + rymd .* rymd);
@@ -292,7 +293,7 @@ Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
 Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
 Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
 Lpr = diag(Lrpr) + diag(Lspr)';
-%diag(Lrpr),diag(Lspr)
+diag(Lrpr),diag(Lspr)
 
 %------------------------------------------------------------------------------
 % time advance
@@ -407,24 +408,28 @@ for it=1:nt
 
 	end
 
-	% vis
 	if(mod(it,50)==0)
+
+		% log
 		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
-		% kovazny
 		if(ifkov)
 			[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy)),dot(pr,Bm2.*pr)]
 		end
 
+		% vis
+		%surf(xm1,ym1,ps); grid on;
+
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 		%surf(xm1,ym1,omega); grid on;
 
-	  	%quiver(xm1,ym1,vx,vy); grid on;
-		%contour(xm1,ym1,vx,100); grid on;
-		surf(xm1,ym1,vx); grid on;
+	  	%quiver(xm1,ym1,vx,vy);
+		%contour(xm1,ym1,vx,100);
+		surf(xm1,ym1,vx); shading interp;
 
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-		%view(2)
+		view(2)
+
 		pause(0.01)
 	end
 
@@ -437,9 +442,12 @@ end
 ['Finished Timestepping']
 
 %surf(xm1,ym1,ps-pse); grid on;
-surf(xm1,ym1,vx); grid on;
+surf(xm1,ym1,vx); shading interp;
+%surf(xm1,ym1,ps); grid on;
 %quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
+view(2)
+
 [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
 %===============================================================================
