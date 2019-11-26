@@ -1,5 +1,5 @@
 %----------------------------------------------------------------------
-function [v] = mask(u,msk)
-	%v = ABu(Ry'*Ry,Rx'*Rx,u);
-	v = msk .* u;
+function [v] = mask(u,Rx,Ry)
+	v = ABu(Ry'*Ry,Rx'*Rx,u);
+	%v = msk .* u;
 end

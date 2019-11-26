@@ -12,15 +12,25 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- LDC blowing up
 %	- verify pressure FDM
+%	- walsch setup
+%	- add references
 %
 %-------------------------------------------------------------------------------
 
 clf; format compact; format shorte;
 
-nx1 = 48;
-ny1 = 48;
+%------------
+ifkov = 1; % exponential convergence achieved
+ifLDC = 0; % blowing up
+ifwls = 0; % /todo
+
+nx1 = 32;
+ny1 = 32;
+
+slv=1; % 0: CG /todo, 1: FDM
+%------------
+
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
@@ -61,9 +71,7 @@ Js1d = interp_mat(zsmd,zsm1);
 
 %-------------------------------------------------------------------------------
 % lid driven cavity
-
-% solver --> 0: CG, 1: FDM
-slv=1;
+if(ifLDC)
 
 % viscosity (velocity, passive scalar)
 visc0 = 1e-2;
@@ -104,14 +112,11 @@ ifps   = 0;    % evolve passive scalar per advection diffusion
 T   = 10;
 CFL = 0.5;
 
+end
 %-------------------------------------------------------------------------------
-ifkov = 1;
-
-if(ifkov)
 % kovazny
 
-% solver --> 0: CG, 1: FDM
-slv=1;
+if(ifkov)
 
 a = -0.5; lx = 2.5; ly=2.0;
 xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); [xm1,ym1] = ndgrid(xx,yy);
@@ -170,6 +175,50 @@ ifps   = 0;    % evolve passive scalar per advection diffusion
 ifpres = 1;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
+T   = 5.0;
+CFL = 0.5;
+
+end
+%------------------------------------------------------------------------------
+% Walsch
+if(ifwls)
+
+% viscosity (velocity, passive scalar)
+visc0 = 1e-2;
+visc1 = 1e-2;
+
+% initial condition
+vx  = 0*xm1; vx(:,end)=1;
+vy  = 0*xm1;
+ps  = 0*xm1; ps(:,end)=1;
+pr  = 0*xm2;
+
+% forcing
+fvx = 0*xm1;
+fvy = 0*xm1;
+fps = 0*xm1;%fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+
+% BC
+vxb = vx;
+vyb = vy;
+psb = ps;
+
+% Restrictions
+Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
+Ryvx = Ism1(2:end-1,:);                  % dir-dir
+Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
+Ryvy = Ism1(2:end-1,:);                  % dir-dir
+Rxps = Irm1(2:end-1,:); % ps             % dir-dir
+Ryps = Ism1(2:end-1,:);                  % dir-dir
+
+ifxperiodic = 0;
+ifyperiodic = 0;
+
+ifvel  = 1;    % evolve velocity field
+ifpres = 1;    % project velocity field onto a div-free subspace
+ifps   = 0;    % evolve passive scalar per advection diffusion
+
+% T=0 ==> steady
 T   = 10;
 CFL = 0.5;
 
@@ -177,7 +226,7 @@ end
 %------------------------------------------------------------------------------
 % setup
 
-% periodic BC
+% periodic BC through restriction matrices
 if(ifxperiodic)
 	Rxvx = [eye(nx1-1),[1;zeros(nx1-2,1)]];
 	Rxvy = Rxvx;
@@ -273,8 +322,8 @@ Lps = visc1 * (diag(Lrps) + diag(Lsps)');
 % Pressure
 Brpr = (Lx/2)*diag(wrm2);
 Bspr = (Ly/2)*diag(wsm2);
-Briv = diag(1./diag(Brv));;
-Bsiv = diag(1./diag(Bsv));;
+Briv = diag(1./diag(Brv));
+Bsiv = diag(1./diag(Bsv));
 
 Msvx = Ryvx'*Ryvx;
 Mrvx = Rxvx'*Rxvx;
@@ -288,12 +337,12 @@ Arpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
 Aspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vy
 Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
 
-[Srpr,Lrpr] = eig(Arpr,Brpr); % /todo misbehaving eigenvalues
+[Srpr,Lrpr] = eig(Arpr,Brpr);
 [Sspr,Lspr] = eig(Aspr,Bspr);
 Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
 Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
 Lpr = diag(Lrpr) + diag(Lspr)';
-diag(Lrpr),diag(Lspr)
+%diag(Lrpr),diag(Lspr)
 
 %------------------------------------------------------------------------------
 % time advance
@@ -414,7 +463,7 @@ for it=1:nt
 		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
 		if(ifkov)
-			[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy)),dot(pr,Bm2.*pr)]
+			[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy))]
 		end
 
 		% vis
