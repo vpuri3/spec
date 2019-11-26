@@ -4,7 +4,7 @@
 %
 %	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
 %
-%   + Dirichlet/Neumann BC
+%   + Dirichlet/Neumann/Periodic BC
 %
 %===============================================================================
 function driver
@@ -12,7 +12,7 @@ function driver
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- verify pressure FDM
+%	- problem w pressure FDM
 %	- walsch setup
 %	- add references
 %
@@ -320,29 +320,37 @@ Ssps=Ssps*diag(1./sqrt(diag(Ssps'*Bsps*Ssps)));
 Lps = visc1 * (diag(Lrps) + diag(Lsps)');
 
 % Pressure
+Jr21 = interp_mat(zrm1,zrm2); % nx2 to nx1
+Js21 = interp_mat(zsm1,zsm2);
+
 Brpr = (Lx/2)*diag(wrm2);
 Bspr = (Ly/2)*diag(wsm2);
 Briv = diag(1./diag(Brv));
 Bsiv = diag(1./diag(Bsv));
 
-Msvx = Ryvx'*Ryvx;
+Msvx = Ryvx'*Ryvx; % mask matrices
 Mrvx = Rxvx'*Rxvx;
-
 Msvy = Ryvy'*Ryvy;
 Mrvy = Rxvy'*Rxvy;
 
+Bsp = Bspr*Js21'*(    (Msvx*Bsiv)     )*Js21*Bspr; % attack vx
+Arp = Brpr*Jr21'*(Drv*(Mrvx*Briv)*Drv')*Jr21*Brpr;
+Asp = Bspr*Js21'*(Dsv*(Msvy*Bsiv)*Dsv')*Js21*Bspr; % attack vy
+Brp = Brpr*Jr21'*(    (Mrvy*Briv)     )*Jr21*Brpr;
+[Srpr,Lrpr] = eig(Arp,Brp);
+[Sspr,Lspr] = eig(Asp,Bsp);
+
 Bspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vx
 Arpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
-
 Aspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vy
 Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
-
 [Srpr,Lrpr] = eig(Arpr,Brpr);
 [Sspr,Lspr] = eig(Aspr,Bspr);
+
 Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
 Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
 Lpr = diag(Lrpr) + diag(Lspr)';
-%diag(Lrpr),diag(Lspr)
+%diag(Lrpr)',diag(Lspr)',pause
 
 %------------------------------------------------------------------------------
 % time advance
@@ -436,7 +444,7 @@ for it=1:nt
  			[vx,vy,pr] = pres_proj(vx,vy,pr1...
 						,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 						,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
-						,Bim2,Srpr,Sspr,Lipr);
+						,Srpr,Sspr,Lipr);
 		end
 		
 	end
@@ -457,13 +465,14 @@ for it=1:nt
 
 	end
 
+	%[dot(Bm1,vx),dot(Bm1,vy),dot(Bm2,pr),dot(Bm1,ps)]
 	if(mod(it,50)==0)
 
 		% log
-		[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
+		[dot(Bm1,vx),dot(Bm1,vy),dot(Bm2,pr),dot(Bm1,ps)]
 
 		if(ifkov)
-			[dot(vxe-vx,Bm1.*(vxe-vx)),dot(vye-vy,Bm1.*(vye-vy))]
+			[dot(vxe-vx,Bm1),dot(vye-vy,Bm1)]
 		end
 
 		% vis

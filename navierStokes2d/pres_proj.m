@@ -4,9 +4,9 @@
 function [vx,vy,pr] = pres_proj(ux,uy,pr1...
 							,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 							,Bp,Jr,Js,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv...
-							,Bip,Srp,Ssp,Lip)
+							,Srp,Ssp,Lip)
 
-	g = -qdivu(ux,uy,Bp,Jr,Js,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
+	g = -diver(ux,uy,Bp,Jr,Js,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
 
 	if(slv==1) % FDM
 		delp = fdm(g,Srp,Ssp,Lip);
@@ -20,6 +20,6 @@ function [vx,vy,pr] = pres_proj(ux,uy,pr1...
 	vx = ux + px;
 	vy = uy + py;
 
-	pr = delp + pr1;
+	pr = pr1 + delp;
 
 end
