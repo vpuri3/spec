@@ -1,16 +1,20 @@
 %
 % pressure project
 %
-function [vx,vy,pr] = pres_proj(ux,uy,pr1...
-							,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
+function [vx,vy,pr] = pres_proj(ux,uy,pr1,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 							,Bp,Jr,Js,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv...
-							,Srp,Ssp,Lip)
+							,Sxp,Syp,Lip,E)
 
 	g = -diver(ux,uy,Bp,Jr,Js,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
 
 	if(slv==1) % FDM
-		delp = fdm(g,Srp,Ssp,Lip);
+		delp = b0 * fdm(g,Sxp,Syp,Lip);
+		%[nx2,ny2]=size(g);
+		%delp = b0 * E\reshape(g,[nx2*ny2,1]);
+		%delp = reshape(delp,[nx2,ny2]);
 	end
+	
+	delp = delp - dot(Bp,delp)/dot(1+0*Bp,Bp);
 
 	[px,py] = vgradp(delp,Bp,Jr,Js,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);
 

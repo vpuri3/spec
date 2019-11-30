@@ -1,13 +1,13 @@
 %===============================================================================
 %
-%	Driver function for advection diffusion equation
+%	Driver function for Navier Stokes equation
 %
 %	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
 %
 %   + Dirichlet/Neumann/Periodic BC
 %
 %===============================================================================
-function driver
+%function driver
 %
 %-------------------------------------------------------------------------------
 %
@@ -17,7 +17,7 @@ function driver
 %	- add references
 %
 %-------------------------------------------------------------------------------
-
+clear;
 clf; format compact; format shorte;
 
 %------------
@@ -29,6 +29,10 @@ nx1 = 32;
 ny1 = 32;
 
 slv=1; % 0: CG /todo, 1: FDM
+
+ifvel  = 1;    % evolve velocity field
+ifpres = 1;    % project velocity field onto a div-free subspace
+ifps   = 0;    % evolve passive scalar per advection diffusion
 %------------
 
 nx2 = nx1 - 2;
@@ -36,31 +40,21 @@ ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
 nyd = ceil(1.5*ny1);
 
-[zrm1,wrm1] = zwgll(nx1-1);
-[zsm1,wsm1] = zwgll(ny1-1);
-[zrm2,wrm2] = zwgll(nx2-1);
-[zsm2,wsm2] = zwgll(ny2-1);
-[zrmd,wrmd] = zwgll(nxd-1);
-[zsmd,wsmd] = zwgll(nyd-1);
+[zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1);
+[zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1);
+[zrmd,wrmd] = zwgll(nxd-1); [zsmd,wsmd] = zwgll(nyd-1);
 
-Drm1 = dhat(zrm1);
-Dsm1 = dhat(zsm1);
-Drm2 = dhat(zrm2);
-Dsm2 = dhat(zsm2);
-Drmd = dhat(zrmd);
-Dsmd = dhat(zsmd);
+Drm1 = dhat(zrm1); Dsm1 = dhat(zsm1);
+Drm2 = dhat(zrm2); Dsm2 = dhat(zsm2);
+Drmd = dhat(zrmd); Dsmd = dhat(zsmd);
 
-Irm1 = eye(nx1);
-Ism1 = eye(ny1);
-Irm2 = eye(nx2);
-Ism2 = eye(ny2);
-Irmd = eye(nxd);
-Ismd = eye(nyd);
+Irm1 = eye(nx1); Ism1 = eye(ny1);
+Irm2 = eye(nx2); Ism2 = eye(ny2);
+Irmd = eye(nxd); Ismd = eye(nyd);
 
-Jr12 = interp_mat(zrm2,zrm1); % nx1 to nx2
-Js12 = interp_mat(zsm2,zsm1);
-Jr1d = interp_mat(zrmd,zrm1); % nx1 to nxd
-Js1d = interp_mat(zsmd,zsm1);
+Jr12 = interp_mat(zrm2,zrm1); Js12 = interp_mat(zsm2,zsm1); % nx1 to nx2
+Jr21 = interp_mat(zrm1,zrm2); Js21 = interp_mat(zsm1,zsm2); % pres. FDM debugging
+Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % nx1 to nxd
 
 %-------------------------------------------------------------------------------
 % geometry
@@ -104,10 +98,6 @@ Ryps = Ism1(2:end-1,:);                  % dir-dir
 ifxperiodic = 0;
 ifyperiodic = 0;
 
-ifvel  = 1;    % evolve velocity field
-ifpres = 1;    % project velocity field onto a div-free subspace
-ifps   = 0;    % evolve passive scalar per advection diffusion
-
 % T=0 ==> steady
 T   = 10;
 CFL = 0.5;
@@ -149,6 +139,9 @@ vy(:,1) = vye(:,1);
 vx(:,end) = vxe(:,end);
 vy(:,end) = vye(:,end);
 
+% chk
+%vx=vxe;vy=vye;
+
 % forcing
 fvx = 0*xm1;
 fvy = 0*xm1;
@@ -169,10 +162,6 @@ Ryps = Ism1(2:end-1,:);                  % dir-dir
 
 ifxperiodic = 0;
 ifyperiodic = 0;
-
-ifvel  = 1;    % evolve velocity field
-ifps   = 0;    % evolve passive scalar per advection diffusion
-ifpres = 1;    % project velocity field onto a div-free subspace
 
 % T=0 ==> steady
 T   = 5.0;
@@ -213,10 +202,6 @@ Ryps = Ism1(2:end-1,:);                  % dir-dir
 
 ifxperiodic = 0;
 ifyperiodic = 0;
-
-ifvel  = 1;    % evolve velocity field
-ifpres = 1;    % project velocity field onto a div-free subspace
-ifps   = 0;    % evolve passive scalar per advection diffusion
 
 % T=0 ==> steady
 T   = 10;
@@ -277,158 +262,140 @@ Lx = max(max(xm1))-min(min(xm1));
 Ly = max(max(ym1))-min(min(ym1));
 
 % Velocity
-Brv = (Lx/2)*diag(wrm1);
-Bsv = (Ly/2)*diag(wsm1);
-Drv = (2/Lx)*Drm1;
-Dsv = (2/Ly)*Dsm1;
-Arv = Drv'*Brv*Drv;
-Asv = Dsv'*Bsv*Dsv;
+Bxv = (Lx/2)*diag(wrm1); Byv = (Ly/2)*diag(wsm1);
+Dxv = (2/Lx)*Drm1;       Dyv = (2/Ly)*Dsm1;
+Axv = Dxv'*Bxv*Dxv;      Ayv = Dyv'*Byv*Dyv;
 
-Brvx = Rxvx*Brv*Rxvx';
-Bsvx = Ryvx*Bsv*Ryvx';
-Arvx = Rxvx*Arv*Rxvx';
-Asvx = Ryvx*Asv*Ryvx';
+Bxvx = Rxvx*Bxv*Rxvx'; Byvx = Ryvx*Byv*Ryvx';
+Axvx = Rxvx*Axv*Rxvx'; Ayvx = Ryvx*Ayv*Ryvx';
 
-Brvy = Rxvy*Brv*Rxvy';
-Bsvy = Ryvy*Bsv*Ryvy';
-Arvy = Rxvy*Arv*Rxvy';
-Asvy = Ryvy*Asv*Ryvy';
+Bxvy = Rxvy*Bxv*Rxvy'; Byvy = Ryvy*Byv*Ryvy';
+Axvy = Rxvy*Axv*Rxvy'; Ayvy = Ryvy*Ayv*Ryvy';
 
-[Srvx,Lrvx] = eig(Arvx,Brvx);
-[Ssvx,Lsvx] = eig(Asvx,Bsvx);
-Srvx=Srvx*diag(1./sqrt(diag(Srvx'*Brvx*Srvx)));
-Ssvx=Ssvx*diag(1./sqrt(diag(Ssvx'*Bsvx*Ssvx)));
-Lvx = visc0 * (diag(Lrvx) + diag(Lsvx)');
+[Sxvx,Lxvx] = eig(Axvx,Bxvx);
+[Syvx,Lyvx] = eig(Ayvx,Byvx);
+Sxvx=Sxvx*diag(1./sqrt(diag(Sxvx'*Bxvx*Sxvx)));
+Syvx=Syvx*diag(1./sqrt(diag(Syvx'*Byvx*Syvx)));
+Lvx = visc0 * (diag(Lxvx) + diag(Lyvx)');
 
-[Srvy,Lrvy] = eig(Arvy,Brvy);
-[Ssvy,Lsvy] = eig(Asvy,Bsvy);
-Srvy=Srvy*diag(1./sqrt(diag(Srvy'*Brvy*Srvy)));
-Ssvy=Ssvy*diag(1./sqrt(diag(Ssvy'*Bsvy*Ssvy)));
-Lvy = visc0 * (diag(Lrvy) + diag(Lsvy)');
-
-% Passive Scalar
-
-Brps = Rxps*Brv*Rxps';
-Bsps = Ryps*Bsv*Ryps';
-Arps = Rxps*Arv*Rxps';
-Asps = Ryps*Asv*Ryps';
-
-[Srps,Lrps] = eig(Arps,Brps);
-[Ssps,Lsps] = eig(Asps,Bsps);
-Srps=Srps*diag(1./sqrt(diag(Srps'*Brps*Srps)));
-Ssps=Ssps*diag(1./sqrt(diag(Ssps'*Bsps*Ssps)));
-Lps = visc1 * (diag(Lrps) + diag(Lsps)');
+[Sxvy,Lxvy] = eig(Axvy,Bxvy);
+[Syvy,Lyvy] = eig(Ayvy,Byvy);
+Sxvy=Sxvy*diag(1./sqrt(diag(Sxvy'*Bxvy*Sxvy)));
+Syvy=Syvy*diag(1./sqrt(diag(Syvy'*Byvy*Syvy)));
+Lvy = visc0 * (diag(Lxvy) + diag(Lyvy)');
 
 % Pressure
-Jr21 = interp_mat(zrm1,zrm2); % nx2 to nx1
-Js21 = interp_mat(zsm1,zsm2);
+Myvx = Ryvx'*Ryvx; Mxvx = Rxvx'*Rxvx;
+Myvy = Ryvy'*Ryvy; Mxvy = Rxvy'*Rxvy;
 
-Brpr = (Lx/2)*diag(wrm2);
-Bspr = (Ly/2)*diag(wsm2);
-Briv = diag(1./diag(Brv));
-Bsiv = diag(1./diag(Bsv));
+Bxpr  = (Lx/2)*diag(wrm2);  Bypr  = (Ly/2)*diag(wsm2);
+Bxiv  = diag(1./diag(Bxv)); Byiv  = diag(1./diag(Byv));
 
-Msvx = Ryvx'*Ryvx; % mask matrices
-Mrvx = Rxvx'*Rxvx;
-Msvy = Ryvy'*Ryvy;
-Mrvy = Rxvy'*Rxvy;
+Byp = Bypr*Js21'*(    (Myvx*Byiv*Myvx)     )*Js21*Bypr; % attack vx
+Axp = Bxpr*Jr21'*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Jr21*Bxpr;
+Ayp = Bypr*Js21'*(Dyv*(Myvy*Byiv*Myvy)*Dyv')*Js21*Bypr; % attack vy
+Bxp = Bxpr*Jr21'*(    (Mxvy*Bxiv*Mxvy)     )*Jr21*Bxpr;
 
-Bsp = Bspr*Js21'*(    (Msvx*Bsiv)     )*Js21*Bspr; % attack vx
-Arp = Brpr*Jr21'*(Drv*(Mrvx*Briv)*Drv')*Jr21*Brpr;
-Asp = Bspr*Js21'*(Dsv*(Msvy*Bsiv)*Dsv')*Js21*Bspr; % attack vy
-Brp = Brpr*Jr21'*(    (Mrvy*Briv)     )*Jr21*Brpr;
-[Srpr,Lrpr] = eig(Arp,Brp);
-[Sspr,Lspr] = eig(Asp,Bsp);
+[Sxpr,Lxpr] = eig(Axp,Bxp);
+[Sypr,Lypr] = eig(Ayp,Byp);
+Sxpr=Sxpr*diag(1./sqrt(diag(Sxpr'*Bxp*Sxpr)));
+Sypr=Sypr*diag(1./sqrt(diag(Sypr'*Byp*Sypr)));
+Lpr  = diag(Lxpr) + diag(Lypr)';
+Lipr = 1 ./ Lpr;
 
-Bspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vx
-Arpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
-Aspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vy
-Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
-[Srpr,Lrpr] = eig(Arpr,Brpr);
-[Sspr,Lspr] = eig(Aspr,Bspr);
+% debugging with explicit matrices
+J21 = kron(Js21,Jr21);
+Bpr = kron(Bypr,Bxpr);
+Mvx = kron(Myvx,Mxvx);
+Mvy = kron(Myvy,Mxvy);
+MM  = [Mvx, zeros(nx1*ny1); zeros(nx1*ny1), Mvy];
+DDb  = Bpr*J21'*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
+Biv  = kron(Byiv,Bxiv);
+BBiv = kron(eye(2),Biv);
 
-Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
-Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
-Lpr = diag(Lrpr) + diag(Lspr)';
-%diag(Lrpr)',diag(Lspr)',pause
+E = DDb*MM*BBiv*MM*DDb';e=sort(eig(E)); %['e.vals of E'],e(1:10)'
+F = E - (kron(Byp,Axp)+kron(Ayp,Bxp)); %['err in forming E'],max(max(abs(F)))
 
+['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
+['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
+['Ly-Sy.T*Ay*Sy'],max(max(abs(Lypr    -Sypr'*Ayp*Sypr)))
+['Iy-Sy.T*By*Sy'],max(max(abs(eye(ny2)-Sypr'*Byp*Sypr)));
+
+p = rand(nx2*ny2,1);
+p1=E\p;
+p2= fdm(reshape(p,[nx2,ny2]),Sxpr,Sypr,Lipr); p2=reshape(p2,[nx2*ny2,1]);
+['err in fdm'],max(abs(p1-p2))
+pause;
+
+%Bsp = Bspr*(     (Bsipr)      )*Bspr; % attack vx
+%Arp = Brpr*(Drm2*(Bripr)*Drm2')*Brpr;
+%Asp = Bspr*(Dsm2*(Bsipr)*Dsm2')*Bspr; % attack vy
+%Brp = Brpr*(     (Bripr)      )*Brpr;
+%
+%Bspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vx
+%Arpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
+%Aspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vy
+%Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
+%[Srpr,Lrpr] = eig(Arpr,Brpr);
+%[Sspr,Lspr] = eig(Aspr,Bspr);
+%Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
+%Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
+%Lpr = diag(Lrpr) + diag(Lspr)';
+%Lipr = 1 ./ Lpr;
+
+% Passive Scalar
+Bxps = Rxps*Bxv*Rxps'; Byps = Ryps*Byv*Ryps';
+Axps = Rxps*Axv*Rxps'; Ayps = Ryps*Ayv*Ryps';
+
+[Sxps,Lxps] = eig(Axps,Bxps);
+[Syps,Lyps] = eig(Ayps,Byps);
+Sxps=Sxps*diag(1./sqrt(diag(Sxps'*Bxps*Sxps)));
+Syps=Syps*diag(1./sqrt(diag(Syps'*Byps*Syps)));
+Lps = visc1 * (diag(Lxps) + diag(Lyps)');
 %------------------------------------------------------------------------------
 % time advance
 
 time = 0;
 
 % initialize histories
-time0 = 0;
-time1 = 0;
-time2 = 0;
-% vx
-vx0  = vx*0;
-vx1  = vx0;
-vx2  = vx0;
-gvx1 = vx0;
-gvx2 = vx0;
-% vy
-vy0  = vy*0;
-vy1  = vy0;
-vy2  = vy0;
-gvy1 = vy0;
-gvy2 = vy0;
-% pr
-pr1  = pr*0;
-% ps
-ps0  = ps*0;
-ps1  = ps0;
-ps2  = ps0;
-gps1 = ps0;
-gps2 = ps0;
+time1 = time*0; time2 = 0;
+vx1 = vx*0; vx2 = vx1; vx3 = vx2; gvx1 = vx1; gvx2 = vx1; gvx3 = vx1;
+vy1 = vy*0; vy2 = vy1; vy3 = vy2; gvy1 = vy1; gvy2 = vy1; gvy3 = vy1;
+ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
+pr1 = pr*0;
 
 for it=1:nt
-
 	time3=time2; time2=time1; time1=time;
 	time = time + dt;
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
-		if(T  ==0) a=0*a; b=0*b; a(1)=1;   end; % steady
-		if(slv==1) Livx = 1    ./ (b(1) + Lvx); % FDM
-		           Livy = 1    ./ (b(1) + Lvy);
-		           Lips = 1    ./ (b(1) + Lps);
-		           Lipr = b(1) ./ (       Lpr); end;
+		if(T  ==0) a=0*a; b=0*b; a(1)=1; end; % steady
+		Livx = 1 ./ (b(1) + Lvx);			  % FDM
+		Livy = 1 ./ (b(1) + Lvy);
+		Lips = 1 ./ (b(1) + Lps);
 	end
 
 	if(ifvel)
-		% pressure forcing
-		if(ifpres)
-			pr1 = pr;
-			[px,py] = vgradp(pr1,Bm2,Jr12,Js12,Irm1,Ism1...
-	 						,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		else
-			px = 0*vx;
-			py = 0*vy;
-		end
-
-		% vx solve
-		 vx3= vx2;  vx2= vx1;  vx1 = vx;
-		gvx3=gvx2; gvx2=gvx1;
+		% update histories
+		vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
+		vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
+						  pr1=pr;
 		
 		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx,vx,vy,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy,vx,vy,Bmd,Irm1,Ism1...
+									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
+		% pressure forcing
+		[px,py]=vgradp(pr1,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+
+		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
 		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bmd,Jr1d,Js1d);
 		bvx = bvx - hmhltz(vxb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 		bvx = bvx + px;
 		bvx = ABu(Ryvx,Rxvx,bvx);
-
-		vxh = visc_slv(bvx,Srvx,Ssvx,Livx,slv);
-		vx  = ABu(Ryvx',Rxvx',vxh) + vxb;
-
-		% vy solve
-		 vy3= vy2;  vy2= vy1;  vy1 = vy;
-		gvy3=gvy2; gvy2=gvy1;
-		
-		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy,vx,vy,Bmd,Irm1,Ism1...
-									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
 		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bmd,Jr1d,Js1d);
@@ -436,21 +403,21 @@ for it=1:nt
 		bvy = bvy + py;
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
-		vyh = visc_slv(bvy,Srvy,Ssvy,Livy,slv);
+		vyh = visc_slv(bvy,Sxvy,Syvy,Livy,slv);
+		vxh = visc_slv(bvx,Sxvx,Syvx,Livx,slv);
+
+		vx  = ABu(Ryvx',Rxvx',vxh) + vxb;
 		vy  = ABu(Ryvy',Rxvy',vyh) + vyb;
 
 		% pressure projection
 		if(ifpres)
- 			[vx,vy,pr] = pres_proj(vx,vy,pr1...
-						,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
+ 			[vx,vy,pr] = pres_proj(vx,vy,pr1,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 						,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
-						,Srpr,Sspr,Lipr);
+						,Sxpr,Sypr,Lipr,E);
 		end
-		
 	end
 	if(ifps)
-		 ps3= ps2;  ps2= ps1;  ps1 = ps;
-		gps3=gps2; gps2=gps1;
+		ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
 		
 		gps1 = mass(fps,Bmd,Jr1d,Js1d) - advect(ps,vx,vy,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -460,12 +427,13 @@ for it=1:nt
 		bps = bps - hmhltz(psb,visc1,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
 		bps = ABu(Ryps,Rxps,bps);
 
-		psh = visc_slv(bps,Srps,Ssps,Lips,slv);
+		psh = visc_slv(bps,Sxps,Syps,Lips,slv);
 		ps  = ABu(Ryps',Rxps',psh) + psb;
-
 	end
 
-	%[dot(Bm1,vx),dot(Bm1,vy),dot(Bm2,pr),dot(Bm1,ps)]
+	%---------------------------------------------------
+	% chk
+	%mesh(xm2,ym2,pr),title('pr'),pause;
 	if(mod(it,50)==0)
 
 		% log
@@ -490,6 +458,7 @@ for it=1:nt
 
 		pause(0.01)
 	end
+	%---------------------------------------------------
 
 	if(blowup(vx,vy,pr,ps));it, return; end;
 
@@ -509,5 +478,5 @@ view(2)
 [dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
 %===============================================================================
-end % driver
+%end % driver
 %===============================================================================
