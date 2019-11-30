@@ -288,13 +288,12 @@ Lvy = visc0 * (diag(Lxvy) + diag(Lyvy)');
 Myvx = Ryvx'*Ryvx; Mxvx = Rxvx'*Rxvx;
 Myvy = Ryvy'*Ryvy; Mxvy = Rxvy'*Rxvy;
 
-Bxpr  = (Lx/2)*diag(wrm2);  Bypr  = (Ly/2)*diag(wsm2);
 Bxiv  = diag(1./diag(Bxv)); Byiv  = diag(1./diag(Byv));
 
-Byp = Bypr*Js21'*(    (Myvx*Byiv*Myvx)     )*Js21*Bypr; % attack vx
-Axp = Bxpr*Jr21'*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Jr21*Bxpr;
-Ayp = Bypr*Js21'*(Dyv*(Myvy*Byiv*Myvy)*Dyv')*Js21*Bypr; % attack vy
-Bxp = Bxpr*Jr21'*(    (Mxvy*Bxiv*Mxvy)     )*Jr21*Bxpr;
+Byp = Js12*Byv*(    (Myvx*Byiv*Myvx)     )*Byv*Js12'; % attack vx
+Axp = Jr12*Bxv*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Bxv*Jr12';
+Ayp = Js12*Byv*(Dyv*(Myvy*Byiv*Myvy)*Dyv')*Byv*Js12'; % attack vy
+Bxp = Jr12*Bxv*(    (Mxvy*Bxiv*Mxvy)     )*Bxv*Jr12';
 
 [Sxpr,Lxpr] = eig(Axp,Bxp);
 [Sypr,Lypr] = eig(Ayp,Byp);
@@ -305,43 +304,27 @@ Lipr = 1 ./ Lpr;
 
 % debugging with explicit matrices
 J21 = kron(Js21,Jr21);
-Bpr = kron(Bypr,Bxpr);
+Bv  = kron(Byv ,Bxv );
 Mvx = kron(Myvx,Mxvx);
 Mvy = kron(Myvy,Mxvy);
 MM  = [Mvx, zeros(nx1*ny1); zeros(nx1*ny1), Mvy];
-DDb  = Bpr*J21'*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
+DDb  = J21'*Bv*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
 Biv  = kron(Byiv,Bxiv);
 BBiv = kron(eye(2),Biv);
 
-E = DDb*MM*BBiv*MM*DDb';e=sort(eig(E)); %['e.vals of E'],e(1:10)'
-F = E - (kron(Byp,Axp)+kron(Ayp,Bxp)); %['err in forming E'],max(max(abs(F)))
+E = DDb*MM*BBiv*MM*DDb';e=sort(eig(E));  ['e.vals of E'],e(1:10)'
+F = E - (kron(Byp,Axp)+kron(Ayp,Bxp));  ['err in forming E'],max(max(abs(F)))
 
-['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
-['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
-['Ly-Sy.T*Ay*Sy'],max(max(abs(Lypr    -Sypr'*Ayp*Sypr)))
-['Iy-Sy.T*By*Sy'],max(max(abs(eye(ny2)-Sypr'*Byp*Sypr)));
+%['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
+%['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
+%['Ly-Sy.T*Ay*Sy'],max(max(abs(Lypr    -Sypr'*Ayp*Sypr)))
+%['Iy-Sy.T*By*Sy'],max(max(abs(eye(ny2)-Sypr'*Byp*Sypr)));
 
-p = rand(nx2*ny2,1);
-p1=E\p;
-p2= fdm(reshape(p,[nx2,ny2]),Sxpr,Sypr,Lipr); p2=reshape(p2,[nx2*ny2,1]);
-['err in fdm'],max(abs(p1-p2))
+%p = rand(nx2*ny2,1);
+%p1=E\p;
+%p2= fdm(reshape(p,[nx2,ny2]),Sxpr,Sypr,Lipr); p2=reshape(p2,[nx2*ny2,1]);
+%['err in fdm'],max(abs(p1-p2))
 pause;
-
-%Bsp = Bspr*(     (Bsipr)      )*Bspr; % attack vx
-%Arp = Brpr*(Drm2*(Bripr)*Drm2')*Brpr;
-%Asp = Bspr*(Dsm2*(Bsipr)*Dsm2')*Bspr; % attack vy
-%Brp = Brpr*(     (Bripr)      )*Brpr;
-%
-%Bspr = Bspr*Js12*(    Bsiv     )*Js12'*Bspr; % attack vx
-%Arpr = Brpr*Jr12*(Drv*Briv*Drv')*Jr12'*Brpr;
-%Aspr = Bspr*Js12*(Dsv*Bsiv*Dsv')*Js12'*Bspr; % attack vy
-%Brpr = Brpr*Jr12*(    Briv     )*Jr12'*Brpr;
-%[Srpr,Lrpr] = eig(Arpr,Brpr);
-%[Sspr,Lspr] = eig(Aspr,Bspr);
-%Srpr=Srpr*diag(1./sqrt(diag(Srpr'*Brpr*Srpr)));
-%Sspr=Sspr*diag(1./sqrt(diag(Sspr'*Bspr*Sspr)));
-%Lpr = diag(Lrpr) + diag(Lspr)';
-%Lipr = 1 ./ Lpr;
 
 % Passive Scalar
 Bxps = Rxps*Bxv*Rxps'; Byps = Ryps*Byv*Ryps';
@@ -388,7 +371,7 @@ for it=1:nt
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
-		[px,py]=vgradp(pr1,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		[px,py]=vgradp(pr1,Bm1,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
@@ -413,7 +396,7 @@ for it=1:nt
 		if(ifpres)
  			[vx,vy,pr] = pres_proj(vx,vy,pr1,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 						,Bm2,Jr12,Js12,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
-						,Sxpr,Sypr,Lipr,E);
+						,Sxpr,Sypr,Lipr,Bm1);
 		end
 	end
 	if(ifps)
