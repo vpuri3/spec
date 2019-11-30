@@ -21,7 +21,7 @@ clear;
 clf; format compact; format shorte;
 
 %------------
-ifkov = 1; % exponential convergence achieved
+ifkov = 1; % blowing up
 ifLDC = 0; % blowing up
 ifwls = 0; % /todo
 
@@ -105,7 +105,6 @@ CFL = 0.5;
 end
 %-------------------------------------------------------------------------------
 % kovazny
-
 if(ifkov)
 
 a = -0.5; lx = 2.5; ly=2.0;
@@ -140,7 +139,7 @@ vx(:,end) = vxe(:,end);
 vy(:,end) = vye(:,end);
 
 % chk
-%vx=vxe;vy=vye;
+vx=vxe;vy=vye;
 
 % forcing
 fvx = 0*xm1;
@@ -251,6 +250,8 @@ Bmd  = Jmd .* (wrmd*wsmd');
 Bim1 = 1   ./ Bm1;
 Bim2 = 1   ./ Bm2;
 
+vol = dot(Bm1,1+0*Bm1);
+
 % laplace operator setup
 g11 = Bmd .* (rxmd .* rxmd + rymd .* rymd);
 g12 = Bmd .* (rxmd .* sxmd + rymd .* symd);
@@ -284,48 +285,6 @@ Sxvy=Sxvy*diag(1./sqrt(diag(Sxvy'*Bxvy*Sxvy)));
 Syvy=Syvy*diag(1./sqrt(diag(Syvy'*Byvy*Syvy)));
 Lvy = visc0 * (diag(Lxvy) + diag(Lyvy)');
 
-% Pressure
-Myvx = Ryvx'*Ryvx; Mxvx = Rxvx'*Rxvx;
-Myvy = Ryvy'*Ryvy; Mxvy = Rxvy'*Rxvy;
-
-Bxiv  = diag(1./diag(Bxv)); Byiv  = diag(1./diag(Byv));
-
-Byp = Js12*Byv*(    (Myvx*Byiv*Myvx)     )*Byv*Js12'; % attack vx
-Axp = Jr12*Bxv*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Bxv*Jr12';
-Ayp = Js12*Byv*(Dyv*(Myvy*Byiv*Myvy)*Dyv')*Byv*Js12'; % attack vy
-Bxp = Jr12*Bxv*(    (Mxvy*Bxiv*Mxvy)     )*Bxv*Jr12';
-
-[Sxpr,Lxpr] = eig(Axp,Bxp);
-[Sypr,Lypr] = eig(Ayp,Byp);
-Sxpr=Sxpr*diag(1./sqrt(diag(Sxpr'*Bxp*Sxpr)));
-Sypr=Sypr*diag(1./sqrt(diag(Sypr'*Byp*Sypr)));
-Lpr  = diag(Lxpr) + diag(Lypr)';
-Lipr = 1 ./ Lpr;
-
-% debugging with explicit matrices
-J21 = kron(Js21,Jr21);
-Bv  = kron(Byv ,Bxv );
-Mvx = kron(Myvx,Mxvx);
-Mvy = kron(Myvy,Mxvy);
-MM  = [Mvx, zeros(nx1*ny1); zeros(nx1*ny1), Mvy];
-DDb  = J21'*Bv*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
-Biv  = kron(Byiv,Bxiv);
-BBiv = kron(eye(2),Biv);
-
-E = DDb*MM*BBiv*MM*DDb';e=sort(eig(E));  ['e.vals of E'],e(1:10)'
-F = E - (kron(Byp,Axp)+kron(Ayp,Bxp));  ['err in forming E'],max(max(abs(F)))
-
-%['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
-%['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
-%['Ly-Sy.T*Ay*Sy'],max(max(abs(Lypr    -Sypr'*Ayp*Sypr)))
-%['Iy-Sy.T*By*Sy'],max(max(abs(eye(ny2)-Sypr'*Byp*Sypr)));
-
-%p = rand(nx2*ny2,1);
-%p1=E\p;
-%p2= fdm(reshape(p,[nx2,ny2]),Sxpr,Sypr,Lipr); p2=reshape(p2,[nx2*ny2,1]);
-%['err in fdm'],max(abs(p1-p2))
-pause;
-
 % Passive Scalar
 Bxps = Rxps*Bxv*Rxps'; Byps = Ryps*Byv*Ryps';
 Axps = Rxps*Axv*Rxps'; Ayps = Ryps*Ayv*Ryps';
@@ -335,10 +294,55 @@ Axps = Rxps*Axv*Rxps'; Ayps = Ryps*Ayv*Ryps';
 Sxps=Sxps*diag(1./sqrt(diag(Sxps'*Bxps*Sxps)));
 Syps=Syps*diag(1./sqrt(diag(Syps'*Byps*Syps)));
 Lps = visc1 * (diag(Lxps) + diag(Lyps)');
+
+% Pressure
+Myvx = Ryvx'*Ryvx; Mxvx = Rxvx'*Rxvx;
+Myvy = Ryvy'*Ryvy; Mxvy = Rxvy'*Rxvy;
+
+Bxiv  = diag(1./diag(Bxv)); Byiv  = diag(1./diag(Byv));
+
+Byp = Js21'*Byv*(    (Myvx*Byiv*Myvx)     )*Byv*Js21; % attack vx
+Axp = Jr21'*Bxv*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Bxv*Jr21;
+Ayp = Js21'*Byv*(Dyv*(Myvy*Byiv*Myvy)*Dyv')*Byv*Js21; % attack vy
+Bxp = Jr21'*Bxv*(    (Mxvy*Bxiv*Mxvy)     )*Bxv*Jr21;
+
+[Sxpr,Lxpr] = eig(Axp,Bxp);
+[Sypr,Lypr] = eig(Ayp,Byp);
+Sxpr=Sxpr*diag(1./sqrt(diag(Sxpr'*Bxp*Sxpr)));
+Sypr=Sypr*diag(1./sqrt(diag(Sypr'*Byp*Sypr)));
+Lpr  = diag(Lxpr) + diag(Lypr)';
+Lipr = 1 ./ Lpr;
+
+% debugging with explicit matrices
+J21  = kron(Js21,Jr21);
+Bv   = kron(Byv ,Bxv );
+Mvx  = kron(Myvx,Mxvx);
+Mvy  = kron(Myvy,Mxvy);
+MM   = [Mvx,zeros(nx1*ny1);zeros(nx1*ny1),Mvy];
+DDb  = J21'*Bv*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
+Biv  = kron(Byiv,Bxiv);
+BBiv = kron(eye(2),Biv);
+
+E = DDb*MM*BBiv*MM*DDb';e=sort(eig(E));  ['e.vals of E'],e(1:10)'
+E = DDb*BBiv*DDb';e=sort(eig(E));  ['e.vals of E'],e(1:10)'
+F = E - (kron(Byp,Axp)+kron(Ayp,Bxp));  ['err in forming E'],max(max(abs(F)))
+
+% verify FDM
+
+%['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
+%['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
+%['Ly-Sy.T*Ay*Sy'],max(max(abs(Lypr    -Sypr'*Ayp*Sypr)))
+%['Iy-Sy.T*By*Sy'],max(max(abs(eye(ny2)-Sypr'*Byp*Sypr)));
+%
+%p = rand(nx2*ny2,1);
+%p1=E\p;
+%p2= fdm(reshape(p,[nx2,ny2]),Sxpr,Sypr,Lipr); p2=reshape(p2,[nx2*ny2,1]);
+%['err in fdm'],max(abs(p1-p2))
+pause;
 %------------------------------------------------------------------------------
 % time advance
 
-time = 0;
+time = 0; 
 
 % initialize histories
 time1 = time*0; time2 = 0;
@@ -365,9 +369,9 @@ for it=1:nt
 		vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
 						  pr1=pr;
 		
-		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx,vx,vy,Bmd,Irm1,Ism1...
+		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy,vx,vy,Bmd,Irm1,Ism1...
+		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
@@ -402,7 +406,7 @@ for it=1:nt
 	if(ifps)
 		ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
 		
-		gps1 = mass(fps,Bmd,Jr1d,Js1d) - advect(ps,vx,vy,Bmd,Irm1,Ism1...
+		gps1 = mass(fps,Bmd,Jr1d,Js1d) - advect(ps1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
@@ -420,10 +424,11 @@ for it=1:nt
 	if(mod(it,50)==0)
 
 		% log
-		[dot(Bm1,vx),dot(Bm1,vy),dot(Bm2,pr),dot(Bm1,ps)]
+		[dot(Bm1,vx),dot(Bm1,vy),dot(Bm2,pr),dot(Bm1,ps)]/vol
 
 		if(ifkov)
-			[dot(vxe-vx,Bm1),dot(vye-vy,Bm1)]
+			['kovazny v-ve']
+			[dot(vxe-vx,Bm1),dot(vye-vy,Bm1)]/vol
 		end
 
 		% vis
@@ -450,15 +455,15 @@ end
 % post process
 
 ['Finished Timestepping']
+['Energy in vx,vy,pr,ps']
+[dot(vx.*vx,Bm1),dot(vy.*vy,Bm1),dot(pr.*pr,Bm2),dot(ps.*ps,Bm1)]/vol
 
 %surf(xm1,ym1,ps-pse); grid on;
-surf(xm1,ym1,vx); shading interp;
+mesh(xm1,ym1,vy); shading interp;
 %surf(xm1,ym1,ps); grid on;
 %quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 view(2)
-
-[dot(vx,Bm1.*vx),dot(vy,Bm1.*vy),dot(pr,Bm2.*pr),dot(ps,Bm1.*ps)]
 
 %===============================================================================
 %end % driver
