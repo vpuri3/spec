@@ -13,26 +13,26 @@
 %-------------------------------------------------------------------------------
 %
 %	/todo
+%	- bug in periodic BC
 %	- walsch setup
 %	- add references (Fischer JCP 97)
-%	- CG solve with FDM preconditioner
 %
 %-------------------------------------------------------------------------------
 clear all;
 clf; format compact; format shorte;
 
 %------------
-ifkov = 0; % blowing up
-ifLDC = 0; % blowing up
-ifwls = 1; % /todo
+ifkov = 0; % converging
+ifLDC = 1; % spurious wiggles
+ifwls = 0; % /todo
 
-nx1 = 10;
-ny1 = 5;
+nx1 = 64;
+ny1 = 64;
 
 slv=1; % 0: CG /todo, 1: FDM
 
 ifvel  = 1;    % evolve velocity field
-ifpres = 0;    % project velocity field onto a div-free subspace
+ifpres = 1;    % project velocity field onto a div-free subspace
 ifps   = 0;    % evolve passive scalar per advection diffusion
 %------------
 
@@ -69,7 +69,7 @@ if(ifLDC)
 
 % viscosity (velocity, passive scalar)
 visc0 = 1e-2;
-visc1 = 1e-2;
+visc1 = 0e-0;
 
 % initial condition
 vx  = 0*xm1; vx(:,end)=1;
@@ -139,8 +139,6 @@ vx(:,end) = vxe(:,end);
 vy(:,end) = vye(:,end);
 
 % chk
-vx(:,:)=0;
-vy(:,:)=0;
 
 % forcing
 fvx = 0*xm1;
@@ -148,46 +146,42 @@ fvy = 0*xm1;
 fps = 0*xm1;
 
 % BC
-vxb = vx; vxb(1,:)=1;
+vxb = vx;
 vyb = vy;
 psb = ps;
 
 % Restrictions
-Rxvx = Irm1(2:end-0,:); % vx             % dir-dir
-Ryvx = Ism1(2:end-0,:);                  % dir-dir
-Rxvy = Irm1(2:end-0,:); % vy             % dir-dir
+Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
+Ryvx = Ism1(2:end-1,:);                  % dir-dir
+Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
-%
 Rxps = Irm1(2:end-1,:); % ps             % dir-dir
 Ryps = Ism1(2:end-1,:);                  % dir-dir
 
-ifxperiodic = 1;
-ifyperiodic = 1;
+ifxperiodic = 0;
+ifyperiodic = 0;
 
 % T=0 ==> steady
 T   = 5.0;
-CFL = 0.05;
+CFL = 0.5;
 
 end
 %------------------------------------------------------------------------------
 % Walsch
 if(ifwls)
 
-Lx = 10;
-Ly = 2;
-
-[xm1,ym1] = ndgrid(5*(1+zrm1),zsm1);
-[xm2,ym2] = ndgrid(5*(1+zrm2),zsm2);
-[xmd,ymd] = ndgrid(5*(1+zrmd),zsmd);
+[xm1,ym1] = ndgrid(2.5*(1+zrm1),zsm1);
+[xm2,ym2] = ndgrid(2.5*(1+zrm2),zsm2);
+[xmd,ymd] = ndgrid(2.5*(1+zrmd),zsmd);
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e+3;
-visc1 = 1e-2;
+visc0 = 0e+0;
+visc1 = 1e-1;
 
 % initial condition
-vx  = 1-ym1.*ym1; vx(2:end,:)=0;
+vx  = 0*xm1+1;
 vy  = 0*xm1;
-ps  = 0*xm1;
+ps  = 1-ym1.*ym1; ps(2:end,:)=0;
 pr  = 0*xm2;
 
 % forcing
@@ -201,18 +195,18 @@ vyb = vy;
 psb = ps;
 
 % Restrictions
-Rxvx = Irm1(2:end-0,:); % vx             % dir-dir
+Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
 Ryvx = Ism1(2:end-1,:);                  % dir-dir
-Rxvy = Irm1(2:end-0,:); % vy             % dir-dir
+Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
-Rxps = Irm1(2:end-1,:); % ps             % dir-dir
+Rxps = Irm1(2:end-0,:); % ps             % dir-neu
 Ryps = Ism1(2:end-1,:);                  % dir-dir
 
 ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 10;
+T   = 5;
 CFL = 0.5;
 
 end
@@ -325,17 +319,17 @@ Lipr = 1 ./ Lpr;
 Lipr(find(Lipr>1e10)) = 0;
 
 % debugging with explicit matrices
-J21  = kron(Js21,Jr21);
-Bv   = kron(Byv ,Bxv );
-Mvx  = kron(Myvx,Mxvx);
-Mvy  = kron(Myvy,Mxvy);
-MM   = [Mvx,zeros(nx1*ny1);zeros(nx1*ny1),Mvy];
-DDb  = J21'*Bv*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
-Biv  = kron(Byiv,Bxiv);
-BBiv = kron(eye(2),Biv);
+%J21  = kron(Js21,Jr21);
+%Bv   = kron(Byv ,Bxv );
+%Mvx  = kron(Myvx,Mxvx);
+%Mvy  = kron(Myvy,Mxvy);
+%MM   = [Mvx,zeros(nx1*ny1);zeros(nx1*ny1),Mvy];
+%DDb  = J21'*Bv*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
+%Biv  = kron(Byiv,Bxiv);
+%BBiv = kron(eye(2),Biv);
 
-E = DDb*MM*BBiv*MM*DDb';
-F = kron(Byp,Axp)+kron(Ayp,Bxp);  ['err in forming E'],max(max(abs(F-E)))
+%E = DDb*MM*BBiv*MM*DDb';
+%F = kron(Byp,Axp)+kron(Ayp,Bxp);  ['err in forming E'],max(max(abs(F-E)))
 %e=sort(eig(E)); ['e.vals of exp  mat'],e(1:6)'
 %e=sort(eig(F)); ['e.vals of kron mat'],e(1:6)'
 
@@ -377,16 +371,17 @@ for it=1:nt
 		Lips = 1 ./ (b(1) + Lps);
 	end
 
+	% update histories
+	vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
+	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
+	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
+				      pr1=pr;
 	if(ifvel)
-		% update histories
-		vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
-		vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
-						  pr1=pr;
 		
 		%mesh(xm1,ym1,vx1),title('vx1'),pause
-		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx1,vx1*0+1,vy1*0,Bmd,Irm1,Ism1...
+		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy1,vx1*0+1,vy1*0,Bmd,Irm1,Ism1...
+		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
@@ -396,13 +391,13 @@ for it=1:nt
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
 		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bmd,Jr1d,Js1d);
 		bvx = bvx - hmhltz(vxb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-		%bvx = bvx + px;
+		bvx = bvx + px;
 		bvx = ABu(Ryvx,Rxvx,bvx);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
 		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bmd,Jr1d,Js1d);
 		bvy = bvy - hmhltz(vyb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
-		%bvy = bvy + py;
+		bvy = bvy + py;
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
 		vyh = visc_slv(bvy,Sxvy,Syvy,Livy,slv);
@@ -419,8 +414,6 @@ for it=1:nt
 		end
 	end
 	if(ifps)
-		ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
-		
 		gps1 = mass(fps,Bmd,Jr1d,Js1d) - advect(ps1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
@@ -435,8 +428,8 @@ for it=1:nt
 
 	%---------------------------------------------------
 	% chk
-	%mesh(xm2,ym2,pr),title('pr'),xlabel('x'),ylabel('y'),pause;
-	it
+	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
+	%it
 	if(mod(it,50)==0)
 
 		% log
@@ -447,6 +440,11 @@ for it=1:nt
 			[dot(vxe-vx,Bm1),dot(vye-vy,Bm1)]/vol
 		end
 
+		if(ifLDC)
+			%contour(xm1,ym1,vx,100);
+			surf(xm1,ym1,vx);
+		end
+
 		% vis
 		%surf(xm1,ym1,ps); grid on;
 
@@ -454,8 +452,9 @@ for it=1:nt
 		%surf(xm1,ym1,omega); grid on;
 
 	  	%quiver(xm1,ym1,vx,vy);
-		%contour(xm1,ym1,vx,100);
-		surf(xm1,ym1,vx); shading interp;
+		if(ifps)
+			mesh(xm1,ym1,ps); shading interp;
+		end
 
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 		view(2)
@@ -475,11 +474,11 @@ end
 [dot(vx.*vx,Bm1),dot(vy.*vy,Bm1),dot(pr.*pr,Bm2),dot(ps.*ps,Bm1)]/vol
 
 %surf(xm1,ym1,ps-pse); grid on;
-surf(xm1,ym1,vx); shading interp;
+mesh(xm1,ym1,vx); shading interp;
 %surf(xm1,ym1,ps); grid on;
 %quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-view(2)
+%view(2)
 
 %===============================================================================
 %end % driver
