@@ -2,7 +2,8 @@
 %
 %	Driver function for Navier Stokes equation
 %
-%	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
+%	\partial_t u + (u\dot\grad) u = -\grad p + nu*\del^2 u + f
+%   				  \grad\dot u = 0
 %
 %   + Dirichlet/Neumann/Periodic BC
 %
@@ -12,9 +13,10 @@
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- problem w pressure FDM
+%	- pressure FDM blowing up
 %	- walsch setup
 %	- add references
+%	- CG solve with FDM preconditioner
 %
 %-------------------------------------------------------------------------------
 clear;
@@ -299,12 +301,18 @@ Lps = visc1 * (diag(Lxps) + diag(Lyps)');
 Myvx = Ryvx'*Ryvx; Mxvx = Rxvx'*Rxvx;
 Myvy = Ryvy'*Ryvy; Mxvy = Rxvy'*Rxvy;
 
-Bxiv  = diag(1./diag(Bxv)); Byiv  = diag(1./diag(Byv));
+Bxiv  = diag(1./diag(Bxv));
+Byiv  = diag(1./diag(Byv));
 
 Byp = Js21'*Byv*(    (Myvx*Byiv*Myvx)     )*Byv*Js21; % attack vx
 Axp = Jr21'*Bxv*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Bxv*Jr21;
 Ayp = Js21'*Byv*(Dyv*(Myvy*Byiv*Myvy)*Dyv')*Byv*Js21; % attack vy
 Bxp = Jr21'*Bxv*(    (Mxvy*Bxiv*Mxvy)     )*Bxv*Jr21;
+
+Byp = Js21'*(    (Myvx*Byv*Myvx)     )*Js21; % attack vx
+Axp = Jr21'*(Dxv*(Mxvx*Bxv*Mxvx)*Dxv')*Jr21;
+Ayp = Js21'*(Dyv*(Myvy*Byv*Myvy)*Dyv')*Js21; % attack vy
+Bxp = Jr21'*(    (Mxvy*Bxv*Mxvy)     )*Jr21;
 
 [Sxpr,Lxpr] = eig(Axp,Bxp);
 [Sypr,Lypr] = eig(Ayp,Byp);
@@ -323,11 +331,12 @@ DDb  = J21'*Bv*[kron(Ism1,Dxv),kron(Dyv,Irm1)]; % DD_bar
 Biv  = kron(Byiv,Bxiv);
 BBiv = kron(eye(2),Biv);
 
-E = DDb*MM*BBiv*MM*DDb';e=sort(eig(E));  ['e.vals of E'],e(1:10)'
-E = DDb*BBiv*DDb';e=sort(eig(E));  ['e.vals of E'],e(1:10)'
-F = E - (kron(Byp,Axp)+kron(Ayp,Bxp));  ['err in forming E'],max(max(abs(F)))
+E = DDb*MM*BBiv*MM*DDb';
+F = kron(Byp,Axp)+kron(Ayp,Bxp);  ['err in forming E'],max(max(abs(F-E)))
+e=sort(eig(E)); ['e.vals of exp  mat'],e(1:6)'
+e=sort(eig(F)); ['e.vals of kron mat'],e(1:6)'
 
-% verify FDM
+% verify fdm function -- done
 
 %['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
 %['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
@@ -357,7 +366,7 @@ for it=1:nt
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
-		if(T  ==0) a=0*a; b=0*b; a(1)=1; end; % steady
+		if(T  ==0) a=0*a; b=0*b; a(1)=1; end; % steady solve
 		Livx = 1 ./ (b(1) + Lvx);			  % FDM
 		Livy = 1 ./ (b(1) + Lvy);
 		Lips = 1 ./ (b(1) + Lps);
