@@ -1,6 +1,6 @@
 function [a,b] = bdfext3(t)
 %
-%	t - array of time-steps (lastest to oldest)
+%	t - array of time-steps (most recent to oldest)
 %
 %	a(3  ,1)
 %	b(3+1,1)

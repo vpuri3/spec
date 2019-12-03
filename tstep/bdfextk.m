@@ -1,6 +1,6 @@
 function [a,b] = bdfextk(t)
 %
-%	t - array of time-steps (current to last)
+%	t - array of time-steps (most recent to oldest)
 %
 %	a(k  ,1)
 %	b(k+1,1)
