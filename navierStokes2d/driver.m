@@ -382,7 +382,7 @@ pr1 = pr*0;
 
 if(ifwls)
 	% initialize histories
-	time2 = time3 + dt;
+	time2 = 0;
 	time1 = time2 + dt;
 	time  = time1 + dt;
 
