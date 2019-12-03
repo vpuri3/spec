@@ -14,7 +14,7 @@
 %
 %	/todo
 %	- bug in periodic BC
-%	- walsch setup
+%	- CG solve
 %	- add references (Fischer JCP 97)
 %
 %-------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ clf; format compact; format shorte;
 %------------
 ifkov = 0;
 ifLDC = 0;
-ifwls = 1; % /todo
+ifwls = 1;
 iftst = 0;
 
 nx1 = 64;
@@ -81,7 +81,7 @@ pr  = 0*xm2;
 % forcing
 fvx = 0*xm1;
 fvy = 0*xm1;
-fps = 0*xm1;%fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+fps = 0*xm1;
 
 % BC
 vxb = vx;
@@ -165,8 +165,8 @@ xx = a + Lx/2 * (zrm2+1); yy = a + Ly/2 * (zsm2+1); [xm2,ym2]=ndgrid(xx,yy);
 xx = a + Lx/2 * (zrmd+1); yy = a + Ly/2 * (zsmd+1); [xmd,ymd]=ndgrid(xx,yy);
 
 % viscosity (velocity, passive scalar)
-visc0 = 0e+0;
-visc1 = 1e-1;
+visc0 = 1e-1;
+visc1 = 0e-0;
 
 % initial condition
 vx  = 0*xm1;
@@ -374,7 +374,7 @@ Lipr(find(Lipr>1e10)) = 0;
 time = 0; 
 
 % initialize histories
-time1 = time*0; time2 = 0;
+time1 = time*0; time2 = 0; time3=0;
 vx1 = vx*0; vx2 = vx1; vx3 = vx2; gvx1 = vx1; gvx2 = vx1; gvx3 = vx1;
 vy1 = vy*0; vy2 = vy1; vy3 = vy2; gvy1 = vy1; gvy2 = vy1; gvy3 = vy1;
 ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
@@ -382,16 +382,33 @@ pr1 = pr*0;
 
 if(ifwls)
 	% initialize histories
+	time2 = time3 + dt;
+	time1 = time2 + dt;
+	time  = time1 + dt;
+
+	[vx2,vy2,~  ] = walsch_ex(xm1,ym1,visc1,time2);
+	[vx1,vy1,pr1] = walsch_ex(xm1,ym1,visc1,time1);
+
+	gvx2 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx2,vx2,vy2,Bmd,Irm1,Ism1...
+		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	gvy2 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy2,vx2,vy2,Bmd,Irm1,Ism1...
+					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	gvx1 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
+		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	gvy1 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
+					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 end
 
 for it=1:nt
+
+	% update time
 	time3=time2; time2=time1; time1=time;
-	time = time + dt;
+	time = time1 + dt;
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
-		if(T  ==0) a=0*a; b=0*b; a(1)=1; end; % steady solve
-		Livx = 1 ./ (b(1) + Lvx);			  % FDM
+		if(T==0) a=0*a; b=0*b; a(1)=1; end; % steady solve
+		Livx = 1 ./ (b(1) + Lvx);	  	    % FDM
 		Livy = 1 ./ (b(1) + Lvy);
 		Lips = 1 ./ (b(1) + Lps);
 	end
@@ -466,7 +483,7 @@ for it=1:nt
 	%---------------------------------------------------
 	% chk
 	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
-	%it
+	%it,[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]rpause
 	if(mod(it,50)==0)
 
 		% log
