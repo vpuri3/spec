@@ -22,13 +22,13 @@ clear all;
 clf; format compact; format shorte;
 
 %------------
-ifkov = 1;
+ifkov = 0;
 ifLDC = 0;
-ifwls = 0; % /todo
+ifwls = 1; % /todo
 iftst = 0;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 64;
+ny1 = 64;
 
 slv=1; % 0: CG /todo, 1: FDM
 
@@ -125,18 +125,8 @@ pr = 0*xm2;
 
 % exact solution
 [vxe,vye] = kov_ex(xm1,ym1,Re);
-%left face: x=-0.5
-vx(1,:) = vxe(1,:);
-vy(1,:) = vye(1,:);
-%right face: x=2.0
-vx(end,:) = vxe(end,:);
-vy(end,:) = vye(end,:);
-%bottom face: y=-0.5
-vx(:,1) = vxe(:,1);
-vy(:,1) = vye(:,1);
-%top face: y=1.5
-vx(:,end) = vxe(:,end);
-vy(:,end) = vye(:,end);
+vx(1,:)=vxe(1,:);vx(end,:)=vxe(end,:);vx(:,1)=vxe(:,1);vx(:,end)=vxe(:,end);
+vy(1,:)=vye(1,:);vy(end,:)=vye(end,:);vy(:,1)=vye(:,1);vy(:,end)=vye(:,end);
 
 % chk
 
@@ -170,24 +160,28 @@ elseif(ifwls)
 % Walsch
 
 a = 0; Lx = 2*pi; Ly=2*pi;
-x = a + Lx/2 * (zm1+1); y = a + Ly/2 * (zm1+1); [xm1,ym1]=ndgrid(x,y);
-x = a + Lx/2 * (zm2+1); y = a + Ly/2 * (zm2+1); [xm2,ym2]=ndgrid(x,y);
-x = a + Lx/2 * (zmd+1); y = a + Ly/2 * (zmd+1); [xmd,ymd]=ndgrid(x,y);
+xx = a + Lx/2 * (zrm1+1); yy = a + Ly/2 * (zsm1+1); [xm1,ym1]=ndgrid(xx,yy);
+xx = a + Lx/2 * (zrm2+1); yy = a + Ly/2 * (zsm2+1); [xm2,ym2]=ndgrid(xx,yy);
+xx = a + Lx/2 * (zrmd+1); yy = a + Ly/2 * (zsmd+1); [xmd,ymd]=ndgrid(xx,yy);
 
 % viscosity (velocity, passive scalar)
 visc0 = 0e+0;
 visc1 = 1e-1;
 
 % initial condition
-vx  = 0*xm1+1;
+vx  = 0*xm1;
 vy  = 0*xm1;
-ps  = 1-ym1.*ym1; ps(2:end,:)=0;
+ps  = 0*xm1;
 pr  = 0*xm2;
+
+[vxe,vye,~] = walsch_ex(xm1,ym1,visc1,0);
+vx(1,:)=vxe(1,:);vx(end,:)=vxe(end,:);vx(:,1)=vxe(:,1);vx(:,end)=vxe(:,end);
+vy(1,:)=vye(1,:);vy(end,:)=vye(end,:);vy(:,1)=vye(:,1);vy(:,end)=vye(:,end);
 
 % forcing
 fvx = 0*xm1;
 fvy = 0*xm1;
-fps = 0*xm1;%fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+fps = 0*xm1;
 
 % BC
 vxb = vx;
@@ -207,7 +201,7 @@ ifyperiodic = 0;
 
 % T=0 ==> steady
 T   = 5;
-CFL = 0.5;
+CFL = 0.1;
 
 elseif(iftst)
 %------------------------------------------------------------------------------
@@ -294,7 +288,6 @@ Bm1  = Jm1 .* (wrm1*wsm1');
 Bm2  = Jm2 .* (wrm2*wsm2');
 Bmd  = Jmd .* (wrmd*wsmd');
 Bim1 = 1   ./ Bm1;
-Bim2 = 1   ./ Bm2;
 
 vol = dot(Bm1,1+0*Bm1);
 
@@ -375,21 +368,6 @@ Lipr(find(Lipr>1e10)) = 0;
 %F = kron(Byp,Axp)+kron(Ayp,Bxp);  ['err in forming E'],max(max(abs(F-E)))
 %e=sort(eig(E)); ['e.vals of exp  mat'],e(1:6)'
 %e=sort(eig(F)); ['e.vals of kron mat'],e(1:6)'
-
-% verify fdm function -- done
-
-%['Lx-Sx.T*Ax*Sx'],max(max(abs(Lxpr    -Sxpr'*Axp*Sxpr)))
-%['Ix-Sx.T*Bx*Sx'],max(max(abs(eye(nx2)-Sxpr'*Bxp*Sxpr)));
-%['Ly-Sy.T*Ay*Sy'],max(max(abs(Lypr    -Sypr'*Ayp*Sypr)))
-%['Iy-Sy.T*By*Sy'],max(max(abs(eye(ny2)-Sypr'*Byp*Sypr)));
-%
-%p = rand(nx2*ny2,1);
-%p1=E\p;
-%p2= fdm(reshape(p,[nx2,ny2]),Sxpr,Sypr,Lipr); p2=reshape(p2,[nx2*ny2,1]);
-%['err in fdm'],max(abs(p1-p2))
-%sort(diag(Lxpr))'
-%sort(diag(Lypr))'
-%pause;
 %------------------------------------------------------------------------------
 % time advance
 
@@ -401,6 +379,10 @@ vx1 = vx*0; vx2 = vx1; vx3 = vx2; gvx1 = vx1; gvx2 = vx1; gvx3 = vx1;
 vy1 = vy*0; vy2 = vy1; vy3 = vy2; gvy1 = vy1; gvy2 = vy1; gvy3 = vy1;
 ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
 pr1 = pr*0;
+
+if(ifwls)
+	% initialize histories
+end
 
 for it=1:nt
 	time3=time2; time2=time1; time1=time;
@@ -420,22 +402,24 @@ for it=1:nt
 	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
 				      pr1=pr;
 
-	% reformulate hemholtz system with time varying vb.
-
 	% update BC, forcing
 	if(ifwls)
-		%vxb =
-		%vyb =
+		[vxe,vye,~] = walsch_ex(xm1,ym1,visc1,time);
+		vxb(1,:)=vxe(1,:);vxb(end,:)=vxe(end,:);
+		vxb(:,1)=vxe(:,1);vxb(:,end)=vxe(:,end);
+		vyb(1,:)=vye(1,:);vyb(end,:)=vye(end,:);
+		vyb(:,1)=vye(:,1);vyb(:,end)=vye(:,end);
+
 		%fxb =
 		%fyb =
 	end
 
 	if(ifvel)
 		
-		gvx1 = fvx.*Bm1 - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
-			   	    		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		gvy1 = fvy.*Bm1 - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
-								,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gvx1 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
+			               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gvy1 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
+						  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
 		[px,py]=vgradp(pr1,Bm1,Jr21,Js21,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -497,6 +481,13 @@ for it=1:nt
 			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
 			mesh(xm1,ym1,vx); grid on;
 			view(3)
+		elseif(ifwls)
+			%['infty kovazny v-ve']
+			%[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
+			['L2 kovazny v-ve']
+			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
+			contour(xm1,ym1,vx); grid on;
+			view(2)
 		elseif(ifLDC)
 			%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 			%surf(xm1,ym1,omega);

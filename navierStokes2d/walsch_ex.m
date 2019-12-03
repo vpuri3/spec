@@ -1,4 +1,4 @@
-function [ue,ve,pe] = walsh_ex(x,y,nu,t)
+function [ue,ve,pe] = walsch_ex(x,y,nu,t)
     %exact solution of Walsh problem (Fig 1 '92 paper)
     lam = 25;
     ue = exp(-  lam*nu*t)   * (sin(5*y)+     cos(3*x).*cos(4*y));
