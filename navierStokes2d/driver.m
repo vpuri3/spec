@@ -22,8 +22,8 @@ clear all;
 clf; format compact; format shorte;
 
 %------------
-ifkov = 0; % convergence doesn't feel good enough - maybe there's an issue
-ifLDC = 1; % spurious wiggles...or plotting issue?
+ifkov = 1;
+ifLDC = 0;
 ifwls = 0; % /todo
 iftst = 0;
 
@@ -39,8 +39,8 @@ ifps   = 0;    % evolve passive scalar per advection diffusion
 
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
-nxd = ceil(1.5*nx1);
-nyd = ceil(1.5*ny1);
+nxd = ceil(1.5*nx1);%nxd=nx1;
+nyd = ceil(1.5*ny1);%nyd=ny1;
 
 [zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1);
 [zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1);
@@ -69,7 +69,7 @@ Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % nx1 to nxd
 if(ifLDC)
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-2;
+visc0 = 1e-3;
 visc1 = 0e-0;
 
 % initial condition
@@ -103,10 +103,9 @@ ifyperiodic = 0;
 T   = 10;
 CFL = 0.5;
 
-end
+elseif(ifkov)
 %-------------------------------------------------------------------------------
 % kovazny
-if(ifkov)
 
 a = -0.5; lx = 2.5; ly=2.0;
 xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); [xm1,ym1] = ndgrid(xx,yy);
@@ -163,13 +162,12 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 5.0;
-CFL = 0.5;
+T   = 25.0;
+CFL = 0.1;
 
-end
+elseif(ifwls)
 %------------------------------------------------------------------------------
 % Walsch
-if(ifwls)
 
 a = 0; Lx = 2*pi; Ly=2*pi;
 x = a + Lx/2 * (zm1+1); y = a + Ly/2 * (zm1+1); [xm1,ym1]=ndgrid(x,y);
@@ -211,10 +209,9 @@ ifyperiodic = 0;
 T   = 5;
 CFL = 0.5;
 
-end
+elseif(iftst)
 %------------------------------------------------------------------------------
 % Testing
-if(iftst)
 
 [xm1,ym1] = ndgrid(2.5*(1+zrm1),zsm1);
 [xm2,ym2] = ndgrid(2.5*(1+zrm2),zsm2);
@@ -222,7 +219,7 @@ if(iftst)
 
 % viscosity (velocity, passive scalar)
 visc0 = 0e+0;
-visc1 = 1e-1;
+visc1 = 0e-2;
 
 % initial condition
 vx  = 0*xm1+1;
@@ -252,8 +249,8 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 5;
-CFL = 0.5;
+T   = 20;
+CFL = 0.1;
 
 end
 %------------------------------------------------------------------------------
@@ -302,9 +299,9 @@ Bim2 = 1   ./ Bm2;
 vol = dot(Bm1,1+0*Bm1);
 
 % laplace operator setup
-g11 = Bmd .* (rxmd .* rxmd + rymd .* rymd);
-g12 = Bmd .* (rxmd .* sxmd + rymd .* symd);
-g22 = Bmd .* (sxmd .* sxmd + symd .* symd);
+g11 = Bm1 .* (rxm1 .* rxm1 + rym1 .* rym1);
+g12 = Bm1 .* (rxm1 .* sxm1 + rym1 .* sym1);
+g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
 
 %------------------------------------------------------------------------------
 % fast diagonalization setup
@@ -426,31 +423,33 @@ for it=1:nt
 	% reformulate hemholtz system with time varying vb.
 
 	% update BC, forcing
-	%vxb =
-	%vyb =
-	%fxb =
-	%fyb =
+	if(ifwls)
+		%vxb =
+		%vyb =
+		%fxb =
+		%fyb =
+	end
 
 	if(ifvel)
 		
-		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
-									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
-									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gvx1 = fvx.*Bm1 - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
+			   	    		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gvy1 = fvy.*Bm1 - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
+								,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
 		[px,py]=vgradp(pr1,Bm1,Jr21,Js21,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
-		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bmd,Jr1d,Js1d);
-		bvx = bvx - hmhltz(vxb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,Irm1,Ism1);
+		bvx = bvx - hmhltz(vxb,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bvx = bvx + px;
 		bvx = ABu(Ryvx,Rxvx,bvx);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
-		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bmd,Jr1d,Js1d);
-		bvy = bvy - hmhltz(vyb,visc0,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,Irm1,Ism1);
+		bvy = bvy - hmhltz(vyb,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bvy = bvy + py;
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
@@ -468,12 +467,12 @@ for it=1:nt
 		end
 	end
 	if(ifps)
-		gps1 = mass(fps,Bmd,Jr1d,Js1d) - advect(ps1,vx1,vy1,Bmd,Irm1,Ism1...
+		gps1 = mass(fps,Bm1,Irm1,Ism1) - advect(ps1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
-		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bmd,Jr1d,Js1d);
-		bps = bps - hmhltz(psb,visc1,b(1),Bmd,Jr1d,Js1d,Drm1,Dsm1,g11,g12,g22);
+		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Irm1,Ism1);
+		bps = bps - hmhltz(psb,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bps = ABu(Ryps,Rxps,bps);
 
 		psh = visc_slv(bps,Sxps,Syps,Lips,slv);
@@ -487,25 +486,29 @@ for it=1:nt
 	if(mod(it,50)==0)
 
 		% log
-		[L2(Bm1,vx),L2(Bm1,vy),L2(Bm2,pr),L2(Bm1,ps)]
+		[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
 		% vis
 		if(ifkov)
 	  		%quiver(xm1,ym1,vx,vy);
+			['infty kovazny v-ve']
+			[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
 			['L2 kovazny v-ve']
 			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
 			mesh(xm1,ym1,vx); grid on;
+			view(3)
 		elseif(ifLDC)
 			%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 			%surf(xm1,ym1,omega);
 			contour(xm1,ym1,vx,50); grid on;
 			%surf(xm1,ym1,vx);
-		elseif(ifps)
+			view(2)
+		elseif(iftst)
 			mesh(xm1,ym1,ps);
+			view(3)
 		end
 
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-		view(2)
 
 		pause(0.01)
 	end

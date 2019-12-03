@@ -1,15 +1,15 @@
 %
 %     (v,-\del^2 u)
 %
-function [Au] = lapl(u,Jr,Js,Dr,Ds,G11,G12,G22)
+function [Au] = lapl(u,Ir,Is,Dr,Ds,G11,G12,G22)
 
-urd = ABu(Js,Jr*Dr,u);
-usd = ABu(Js*Ds,Jr,u);
+ur = ABu(Is,Ir*Dr,u);
+us = ABu(Is*Ds,Ir,u);
 
-wr = G11.*urd + G12.*usd;
-ws = G12.*urd + G22.*usd;
+wr = G11.*ur + G12.*us;
+ws = G12.*ur + G22.*us;
 
-Au = ABu(Js',Dr'*Jr',wr) + ABu(Ds'*Js',Jr',ws);
+Au = ABu(Is',Dr'*Ir',wr) + ABu(Ds'*Is',Ir',ws);
 
 end
 
