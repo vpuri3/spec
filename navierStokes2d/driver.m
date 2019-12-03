@@ -22,12 +22,13 @@ clear all;
 clf; format compact; format shorte;
 
 %------------
-ifkov = 0; % converging
-ifLDC = 1; % spurious wiggles
+ifkov = 0; % convergence doesn't feel good enough - maybe there's an issue
+ifLDC = 1; % spurious wiggles...or plotting issue?
 ifwls = 0; % /todo
+iftst = 0;
 
-nx1 = 64;
-ny1 = 64;
+nx1 = 32;
+ny1 = 32;
 
 slv=1; % 0: CG /todo, 1: FDM
 
@@ -169,6 +170,51 @@ end
 %------------------------------------------------------------------------------
 % Walsch
 if(ifwls)
+
+a = 0; Lx = 2*pi; Ly=2*pi;
+x = a + Lx/2 * (zm1+1); y = a + Ly/2 * (zm1+1); [xm1,ym1]=ndgrid(x,y);
+x = a + Lx/2 * (zm2+1); y = a + Ly/2 * (zm2+1); [xm2,ym2]=ndgrid(x,y);
+x = a + Lx/2 * (zmd+1); y = a + Ly/2 * (zmd+1); [xmd,ymd]=ndgrid(x,y);
+
+% viscosity (velocity, passive scalar)
+visc0 = 0e+0;
+visc1 = 1e-1;
+
+% initial condition
+vx  = 0*xm1+1;
+vy  = 0*xm1;
+ps  = 1-ym1.*ym1; ps(2:end,:)=0;
+pr  = 0*xm2;
+
+% forcing
+fvx = 0*xm1;
+fvy = 0*xm1;
+fps = 0*xm1;%fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+
+% BC
+vxb = vx;
+vyb = vy;
+psb = ps;
+
+% Restrictions
+Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
+Ryvx = Ism1(2:end-1,:);                  % dir-dir
+Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
+Ryvy = Ism1(2:end-1,:);                  % dir-dir
+Rxps = Irm1(2:end-0,:); % ps             % dir-neu
+Ryps = Ism1(2:end-1,:);                  % dir-dir
+
+ifxperiodic = 0;
+ifyperiodic = 0;
+
+% T=0 ==> steady
+T   = 5;
+CFL = 0.5;
+
+end
+%------------------------------------------------------------------------------
+% Testing
+if(iftst)
 
 [xm1,ym1] = ndgrid(2.5*(1+zrm1),zsm1);
 [xm2,ym2] = ndgrid(2.5*(1+zrm2),zsm2);
@@ -376,9 +422,17 @@ for it=1:nt
 	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
 	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
 				      pr1=pr;
+
+	% reformulate hemholtz system with time varying vb.
+
+	% update BC, forcing
+	%vxb =
+	%vyb =
+	%fxb =
+	%fyb =
+
 	if(ifvel)
 		
-		%mesh(xm1,ym1,vx1),title('vx1'),pause
 		gvx1 = mass(fvx,Bmd,Jr1d,Js1d) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
 									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 		gvy1 = mass(fvy,Bmd,Jr1d,Js1d) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
@@ -433,27 +487,21 @@ for it=1:nt
 	if(mod(it,50)==0)
 
 		% log
-		[dot(Bm1,vx),dot(Bm1,vy),dot(Bm2,pr),dot(Bm1,ps)]/vol
-
-		if(ifkov)
-			['kovazny v-ve']
-			[dot(vxe-vx,Bm1),dot(vye-vy,Bm1)]/vol
-		end
-
-		if(ifLDC)
-			%contour(xm1,ym1,vx,100);
-			surf(xm1,ym1,vx);
-		end
+		[L2(Bm1,vx),L2(Bm1,vy),L2(Bm2,pr),L2(Bm1,ps)]
 
 		% vis
-		%surf(xm1,ym1,ps); grid on;
-
-		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		%surf(xm1,ym1,omega); grid on;
-
-	  	%quiver(xm1,ym1,vx,vy);
-		if(ifps)
-			mesh(xm1,ym1,ps); shading interp;
+		if(ifkov)
+	  		%quiver(xm1,ym1,vx,vy);
+			['L2 kovazny v-ve']
+			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
+			mesh(xm1,ym1,vx); grid on;
+		elseif(ifLDC)
+			%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+			%surf(xm1,ym1,omega);
+			contour(xm1,ym1,vx,50); grid on;
+			%surf(xm1,ym1,vx);
+		elseif(ifps)
+			mesh(xm1,ym1,ps);
 		end
 
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
@@ -471,10 +519,10 @@ end
 
 ['Finished Timestepping']
 ['Energy in vx,vy,pr,ps']
-[dot(vx.*vx,Bm1),dot(vy.*vy,Bm1),dot(pr.*pr,Bm2),dot(ps.*ps,Bm1)]/vol
+[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
 %surf(xm1,ym1,ps-pse); grid on;
-mesh(xm1,ym1,vx); shading interp;
+%mesh(xm1,ym1,vx); shading interp;
 %surf(xm1,ym1,ps); grid on;
 %quiver(xm1,ym1,vx,vy); grid on;
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
