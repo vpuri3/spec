@@ -20,14 +20,14 @@ end
 %-------------------------------------------------------------------------------
 %function [x,k,rsqnew] = cg_visc(b,msk,x0,tol,maxiter);
 %	x = x0;
-%	r = b - hmhltz(x,msk); % r = b - Ax
+%	r = b - hlmhltz(x,msk); % r = b - Ax
 %	rsqold=dot(r,r);
 %	
 %	if(sqrt(rsqold) < tol); rsqnew=rsqold; return; end;
 %	
 %	p=r;
 %	for k=1:maxiter
-%		Ap = hmhltz(p,msk); % Ap = A*p
+%		Ap = hlmhltz(p,msk); % Ap = A*p
 %		al = rsqold / dot(p,Ap);
 %		x  = x + al*p;
 %		r  = r - al*Ap;

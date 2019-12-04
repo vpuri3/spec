@@ -14,8 +14,10 @@
 %
 %	/todo
 %	- bug in periodic BC
-%	- CG solve
+%	- PCG solve for pressure, hlmhltz
 %	- add references (Fischer JCP 97)
+%	- fine mesh for plotting
+%	- create usr file to add parameters
 %
 %-------------------------------------------------------------------------------
 clear all;
@@ -23,8 +25,8 @@ clf; format compact; format shorte;
 
 %------------
 ifkov = 0;
-ifLDC = 0;
-ifwls = 1;
+ifLDC = 1;
+ifwls = 0;
 iftst = 0;
 
 nx1 = 32;
@@ -75,7 +77,7 @@ visc1 = 0e-0;
 % initial condition
 vx  = 0*xm1; vx(:,end)=1;
 vy  = 0*xm1;
-ps  = 0*xm1; ps(:,end)=1;
+ps  = 0*xm1;
 pr  = 0*xm2;
 
 % forcing
@@ -195,7 +197,7 @@ ifyperiodic = 0;
 
 % T=0 ==> steady
 T   = 5;
-CFL = 0.1;
+CFL = 0.5;
 
 elseif(iftst)
 %------------------------------------------------------------------------------
@@ -444,13 +446,13 @@ for it=1:nt
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
 		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,Irm1,Ism1);
-		bvx = bvx - hmhltz(vxb,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+		bvx = bvx - hlmhltz(vxb,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bvx = bvx + px;
 		bvx = ABu(Ryvx,Rxvx,bvx);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
 		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,Irm1,Ism1);
-		bvy = bvy - hmhltz(vyb,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+		bvy = bvy - hlmhltz(vyb,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bvy = bvy + py;
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
@@ -473,7 +475,7 @@ for it=1:nt
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
 		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Irm1,Ism1);
-		bps = bps - hmhltz(psb,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+		bps = bps - hlmhltz(psb,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bps = ABu(Ryps,Rxps,bps);
 
 		psh = visc_slv(bps,Sxps,Syps,Lips,slv);
