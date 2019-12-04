@@ -170,10 +170,10 @@ CFL = 0.5;
 
 elseif(ifwls)
 %------------------------------------------------------------------------------
-% Walsch
+% Walsh
 
-casename = 'Decaying Eddies (Walsch 1992)';
-cname = 'walsch';
+casename = 'Decaying Eddies (Walsh 1992)';
+cname = 'walsh';
 
 a = 0; Lx = 2*pi; Ly=2*pi;
 xx = a + Lx/2 * (zrm1+1); yy = a + Ly/2 * (zsm1+1); [xm1,ym1]=ndgrid(xx,yy);
@@ -407,10 +407,10 @@ if(ifwls)
 	time1 = time2 + dt;
 	time  = time1 + dt;
 
-	[vx2,vy2,~ ] = walsch_ex(xm1,ym1,visc0,time2);
-	[vx1,vy1,~ ] = walsch_ex(xm1,ym1,visc0,time1);
-	[vx ,vy ,~ ] = walsch_ex(xm1,ym1,visc0,time );
-	[~  ,~  ,pr] = walsch_ex(xm2,ym2,visc0,time );
+	[vx2,vy2,~ ] = walsh_ex(xm1,ym1,visc0,time2);
+	[vx1,vy1,~ ] = walsh_ex(xm1,ym1,visc0,time1);
+	[vx ,vy ,~ ] = walsh_ex(xm1,ym1,visc0,time );
+	[~  ,~  ,pr] = walsh_ex(xm2,ym2,visc0,time );
 
 	gvx2 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx2,vx2,vy2,Bmd,Irm1,Ism1...
 		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -448,7 +448,7 @@ for it=1:nt
 
 	% update BC, forcing
 	if(ifwls)
-		[vxe,vye,~] = walsch_ex(xm1,ym1,visc0,time);
+		[vxe,vye,~] = walsh_ex(xm1,ym1,visc0,time);
 
 		vxb = vxe;
 		vyb = vye;
@@ -569,7 +569,7 @@ mov   = [mov,flip(mov)];
 for i=1:length(mov)
 	f = mov(i);
 	[img,cmap] = rgb2ind(f.cdata,256);
-	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps)
+	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
 	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
 	end
 end
