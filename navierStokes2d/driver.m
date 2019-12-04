@@ -27,8 +27,8 @@ ifLDC = 0;
 ifwls = 1;
 iftst = 0;
 
-nx1 = 64;
-ny1 = 64;
+nx1 = 32;
+ny1 = 32;
 
 slv=1; % 0: CG /todo, 1: FDM
 
@@ -125,8 +125,6 @@ pr = 0*xm2;
 
 % exact solution
 [vxe,vye] = kov_ex(xm1,ym1,Re);
-vx(1,:)=vxe(1,:);vx(end,:)=vxe(end,:);vx(:,1)=vxe(:,1);vx(:,end)=vxe(:,end);
-vy(1,:)=vye(1,:);vy(end,:)=vye(end,:);vy(:,1)=vye(:,1);vy(:,end)=vye(:,end);
 
 % chk
 
@@ -136,8 +134,8 @@ fvy = 0*xm1;
 fps = 0*xm1;
 
 % BC
-vxb = vx;
-vyb = vy;
+vxb = vxe;
+vyb = vye;
 psb = ps;
 
 % Restrictions
@@ -165,18 +163,14 @@ xx = a + Lx/2 * (zrm2+1); yy = a + Ly/2 * (zsm2+1); [xm2,ym2]=ndgrid(xx,yy);
 xx = a + Lx/2 * (zrmd+1); yy = a + Ly/2 * (zsmd+1); [xmd,ymd]=ndgrid(xx,yy);
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-1;
+visc0 = 1e-2;
 visc1 = 0e-0;
 
 % initial condition
 vx  = 0*xm1;
 vy  = 0*xm1;
-ps  = 0*xm1;
 pr  = 0*xm2;
-
-[vxe,vye,~] = walsch_ex(xm1,ym1,visc1,0);
-vx(1,:)=vxe(1,:);vx(end,:)=vxe(end,:);vx(:,1)=vxe(:,1);vx(:,end)=vxe(:,end);
-vy(1,:)=vye(1,:);vy(end,:)=vye(end,:);vy(:,1)=vye(:,1);vy(:,end)=vye(:,end);
+ps  = 0*xm1;
 
 % forcing
 fvx = 0*xm1;
@@ -193,7 +187,7 @@ Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
 Ryvx = Ism1(2:end-1,:);                  % dir-dir
 Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
-Rxps = Irm1(2:end-0,:); % ps             % dir-neu
+Rxps = Irm1(2:end-1,:); % ps             % dir-dir
 Ryps = Ism1(2:end-1,:);                  % dir-dir
 
 ifxperiodic = 0;
@@ -386,8 +380,10 @@ if(ifwls)
 	time1 = time2 + dt;
 	time  = time1 + dt;
 
-	[vx2,vy2,~  ] = walsch_ex(xm1,ym1,visc1,time2);
-	[vx1,vy1,pr1] = walsch_ex(xm1,ym1,visc1,time1);
+	[vx2,vy2,~ ] = walsch_ex(xm1,ym1,visc0,time2);
+	[vx1,vy1,~ ] = walsch_ex(xm1,ym1,visc0,time1);
+	[vx ,vy ,~ ] = walsch_ex(xm1,ym1,visc0,time );
+	[~  ,~  ,pr] = walsch_ex(xm2,ym2,visc0,time );
 
 	gvx2 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx2,vx2,vy2,Bmd,Irm1,Ism1...
 		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
@@ -396,6 +392,10 @@ if(ifwls)
 	gvx1 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
 		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	gvy1 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
+					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	gvx  = mass(fvx,Bm1,Irm1,Ism1) - advect(vx ,vx ,vy ,Bmd,Irm1,Ism1...
+	                   		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+	gvy  = mass(fvy,Bm1,Irm1,Ism1) - advect(vy ,vx ,vy ,Bmd,Irm1,Ism1...
 					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 end
 
@@ -421,14 +421,14 @@ for it=1:nt
 
 	% update BC, forcing
 	if(ifwls)
-		[vxe,vye,~] = walsch_ex(xm1,ym1,visc1,time);
-		vxb(1,:)=vxe(1,:);vxb(end,:)=vxe(end,:);
-		vxb(:,1)=vxe(:,1);vxb(:,end)=vxe(:,end);
-		vyb(1,:)=vye(1,:);vyb(end,:)=vye(end,:);
-		vyb(:,1)=vye(:,1);vyb(:,end)=vye(:,end);
+		[vxe,vye,~] = walsch_ex(xm1,ym1,visc0,time);
 
-		%fxb =
-		%fyb =
+		vxb = vxe;
+		vyb = vye;
+		%psb = psb;
+		%fvx = fvx;
+		%fvy = fvy;
+		%fps = fps;
 	end
 
 	if(ifvel)
@@ -501,7 +501,7 @@ for it=1:nt
 		elseif(ifwls)
 			%['infty kovazny v-ve']
 			%[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
-			['L2 kovazny v-ve']
+			['L2 walsch v-ve']
 			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
 			contour(xm1,ym1,vx); grid on;
 			view(2)
@@ -532,7 +532,6 @@ end
 ['Energy in vx,vy,pr,ps']
 [L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
-%surf(xm1,ym1,ps-pse); grid on;
 %mesh(xm1,ym1,vx); shading interp;
 %surf(xm1,ym1,ps); grid on;
 %quiver(xm1,ym1,vx,vy); grid on;
