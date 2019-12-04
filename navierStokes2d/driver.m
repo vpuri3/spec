@@ -16,17 +16,17 @@
 %	- bug in periodic BC
 %	- PCG solve for pressure, hlmhltz
 %	- add references (Fischer JCP 97)
-%	- fine mesh for plotting
 %	- create usr file to add parameters
 %
 %-------------------------------------------------------------------------------
-clear all;
-clf; format compact; format shorte;
+clear;
+clf; fig=gcf;
+format compact; format shorte;
 
 %------------
 ifkov = 0;
-ifLDC = 1;
-ifwls = 0;
+ifLDC = 0;
+ifwls = 1;
 iftst = 0;
 
 nx1 = 32;
@@ -41,12 +41,15 @@ ifps   = 0;    % evolve passive scalar per advection diffusion
 
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
-nxd = ceil(1.5*nx1);%nxd=nx1;
-nyd = ceil(1.5*ny1);%nyd=ny1;
+nxd = ceil(1.5*nx1);
+nyd = ceil(1.5*ny1);
+nxp = 10*nx1;
+nyp = 10*ny1;
 
-[zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1);
-[zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1);
-[zrmd,wrmd] = zwgll(nxd-1); [zsmd,wsmd] = zwgll(nyd-1);
+[zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1); % vel, scalar
+[zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1); % pres
+[zrmd,wrmd] = zwgll(nxd-1); [zsmd,wsmd] = zwgll(nyd-1); % dealias
+[zrmp,~   ] = zwuni(nxd-1); [zsmp,~   ] = zwgll(nyp-1); % plt
 
 Drm1 = dhat(zrm1); Dsm1 = dhat(zsm1);
 Drm2 = dhat(zrm2); Dsm2 = dhat(zsm2);
@@ -56,8 +59,10 @@ Irm1 = eye(nx1); Ism1 = eye(ny1);
 Irm2 = eye(nx2); Ism2 = eye(ny2);
 Irmd = eye(nxd); Ismd = eye(nyd);
 
-Jr21 = interp_mat(zrm1,zrm2); Js21 = interp_mat(zsm1,zsm2); % nx2 to nx1
-Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % nx1 to nxd
+Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % vel  -> dealias
+Jr21 = interp_mat(zrm1,zrm2); Js21 = interp_mat(zsm1,zsm2); % pres -> vel
+Jr1p = interp_mat(zrmp,zrm1); Js1p = interp_mat(zsmp,zsm1); % vel  -> plt
+Jr2p = interp_mat(zrmp,zrm2); Js2p = interp_mat(zsmp,zsm2); % pres -> plt
 
 %-------------------------------------------------------------------------------
 % geometry
@@ -65,10 +70,14 @@ Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % nx1 to nxd
 [xm1,ym1] = ndgrid(zrm1,zsm1);
 [xm2,ym2] = ndgrid(zrm2,zsm2);
 [xmd,ymd] = ndgrid(zrmd,zsmd);
+[xmp,ymp] = ndgrid(zrmp,zsmp);
 
 %-------------------------------------------------------------------------------
 % lid driven cavity
 if(ifLDC)
+
+casename = 'Lid Driven Cavity';
+cname = 'LDC';
 
 % viscosity (velocity, passive scalar)
 visc0 = 1e-3;
@@ -109,10 +118,14 @@ elseif(ifkov)
 %-------------------------------------------------------------------------------
 % kovazny
 
+casename = 'Kovazny Flow';
+cname = 'kov';
+
 a = -0.5; lx = 2.5; ly=2.0;
 xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); [xm1,ym1] = ndgrid(xx,yy);
 xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1); [xm2,ym2] = ndgrid(xx,yy);
 xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1); [xmd,ymd] = ndgrid(xx,yy);  
+xx = a + lx/2 * (zrmp+1) ; yy = a + ly/2 * (zsmp+1); [xmp,ymp] = ndgrid(xx,yy);  
 
 % viscosity (velocity, passive scalar)
 Re = 40;
@@ -152,17 +165,21 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 25.0;
-CFL = 0.1;
+T   = 4.0;
+CFL = 0.5;
 
 elseif(ifwls)
 %------------------------------------------------------------------------------
 % Walsch
 
+casename = 'Decaying Eddies (Walsch 1992)';
+cname = 'walsch';
+
 a = 0; Lx = 2*pi; Ly=2*pi;
 xx = a + Lx/2 * (zrm1+1); yy = a + Ly/2 * (zsm1+1); [xm1,ym1]=ndgrid(xx,yy);
 xx = a + Lx/2 * (zrm2+1); yy = a + Ly/2 * (zsm2+1); [xm2,ym2]=ndgrid(xx,yy);
 xx = a + Lx/2 * (zrmd+1); yy = a + Ly/2 * (zsmd+1); [xmd,ymd]=ndgrid(xx,yy);
+xx = a + Lx/2 * (zrmp+1); yy = a + Ly/2 * (zsmp+1); [xmp,ymp]=ndgrid(xx,yy);
 
 % viscosity (velocity, passive scalar)
 visc0 = 1e-2;
@@ -196,16 +213,20 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 5;
+T   = 50;
 CFL = 0.5;
 
 elseif(iftst)
 %------------------------------------------------------------------------------
 % Testing
 
+casename = 'Testing';
+cname = 'tst';
+
 [xm1,ym1] = ndgrid(2.5*(1+zrm1),zsm1);
 [xm2,ym2] = ndgrid(2.5*(1+zrm2),zsm2);
 [xmd,ymd] = ndgrid(2.5*(1+zrmd),zsmd);
+[xmp,ymp] = ndgrid(2.5*(1+zrmp),zsmp);
 
 % viscosity (velocity, passive scalar)
 visc0 = 0e+0;
@@ -272,7 +293,12 @@ dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
 
-if(T==0); nt=1;dt=0; end; % steady
+if(T==0)      % steady
+	nt=1;
+	dt=0;
+else          % movie
+	mov=[];
+end
 
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
@@ -333,9 +359,8 @@ Lps = visc1 * (diag(Lxps) + diag(Lyps)');
 % Pressure
 Myvx = Ryvx'*Ryvx; Mxvx = Rxvx'*Rxvx;
 Myvy = Ryvy'*Ryvy; Mxvy = Rxvy'*Rxvy;
-
-Bxiv  = diag(1./diag(Bxv));
-Byiv  = diag(1./diag(Byv));
+Bxiv = diag(1./diag(Bxv));
+Byiv = diag(1./diag(Byv));
 
 Byp = Js21'*Byv*(    (Myvx*Byiv*Myvx)     )*Byv*Js21; % attack vx
 Axp = Jr21'*Bxv*(Dxv*(Mxvx*Bxiv*Mxvx)*Dxv')*Bxv*Jr21;
@@ -486,41 +511,41 @@ for it=1:nt
 	% chk
 	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
 	%it,[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]rpause
-	if(mod(it,50)==0)
+	if(mod(it,50)==0 | time==T)
+
+		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		%surf(xm1,ym1,omega);
 
 		% log
-		[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
+		%[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
 		% vis
+		vxp = ABu(Js1p,Jr1p,vx);
+		vyp = ABu(Js1p,Jr1p,vy);
+		prp = ABu(Js2p,Jr2p,pr);
+		psp = ABu(Js1p,Jr1p,ps);
+
 		if(ifkov)
-	  		%quiver(xm1,ym1,vx,vy);
-			['infty kovazny v-ve']
-			[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
-			['L2 kovazny v-ve']
-			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
-			mesh(xm1,ym1,vx); grid on;
-			view(3)
+			['infty kovazny v-ve'],[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
+			%['L2 kovazny v-ve'],[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
+			contour(xmp,ymp,vxp,20);
+			view(2)
 		elseif(ifwls)
-			%['infty kovazny v-ve']
-			%[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
-			['L2 walsch v-ve']
-			[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
-			contour(xm1,ym1,vx); grid on;
+			['infty walsch v-ve'],[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
+			%['L2 walsch v-ve'],[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
+			contour(xmp,ymp,vxp,20);
 			view(2)
 		elseif(ifLDC)
-			%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-			%surf(xm1,ym1,omega);
-			contour(xm1,ym1,vx,50); grid on;
-			%surf(xm1,ym1,vx);
+			contour(xmp,ymp,vxp,50);
 			view(2)
 		elseif(iftst)
-			mesh(xm1,ym1,ps);
+			mesh(xmp,ymp,psp);
 			view(3)
 		end
 
-	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-
-		pause(0.01)
+	   	title([casename,', t=',num2str(time,'%4.2f'),]);
+		drawnow
+		mov = [mov,getframe(fig)];
 	end
 	%---------------------------------------------------
 
@@ -531,14 +556,23 @@ end
 % post process
 
 ['Finished Timestepping']
-['Energy in vx,vy,pr,ps']
-[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
+['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
-%mesh(xm1,ym1,vx); shading interp;
-%surf(xm1,ym1,ps); grid on;
-%quiver(xm1,ym1,vx,vy); grid on;
-title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-%view(2)
+% play movie
+%movie(fig,mov,-2,40);
+
+% save as gif
+gname = [cname,'.gif'];
+fps   = 40;
+mov   = [mov,flip(mov)];
+
+for i=1:length(mov)
+	f = mov(i);
+	[img,cmap] = rgb2ind(f.cdata,256);
+	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps)
+	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
+	end
+end
 
 %===============================================================================
 %end % driver
