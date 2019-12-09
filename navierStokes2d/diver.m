@@ -1,4 +1,4 @@
-%
+% DD
 % (q,dudx+dvdy)
 function [DDu] = diver(ux,uy,Bv,Jrpv,Jspv,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv)
 

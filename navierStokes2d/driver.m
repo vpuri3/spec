@@ -14,7 +14,7 @@
 %
 %	/todo
 %	- bug in periodic BC
-%	- PCG solve for pressure, hlmhltz
+%	- gmres for pressure
 %	- add references (Fischer JCP 97)
 %	- create usr file to add parameters
 %
@@ -32,7 +32,7 @@ iftst = 0;
 nx1 = 32;
 ny1 = 32;
 
-slv=1; % 0: CG /todo, 1: FDM
+slv=0; % 0: CG, 1: FDM
 
 ifvel  = 1;    % evolve velocity field
 ifpres = 1;    % project velocity field onto a div-free subspace
@@ -80,7 +80,7 @@ casename = 'Lid Driven Cavity';
 cname = 'LDC';
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-3;
+visc0 = 1e-2;
 visc1 = 0e-0;
 
 % initial condition
@@ -111,7 +111,7 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 10;
+T   = 10.0;
 CFL = 0.5;
 
 elseif(ifkov)
@@ -213,7 +213,7 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 50;
+T   = 50.0;
 CFL = 0.5;
 
 elseif(iftst)
@@ -223,25 +223,25 @@ elseif(iftst)
 casename = 'Testing';
 cname = 'tst';
 
-[xm1,ym1] = ndgrid(2.5*(1+zrm1),zsm1);
-[xm2,ym2] = ndgrid(2.5*(1+zrm2),zsm2);
-[xmd,ymd] = ndgrid(2.5*(1+zrmd),zsmd);
-[xmp,ymp] = ndgrid(2.5*(1+zrmp),zsmp);
+[xm1,ym1] = ndgrid(zrm1,zsm1);
+[xm2,ym2] = ndgrid(zrm2,zsm2);
+[xmd,ymd] = ndgrid(zrmd,zsmd);
+[xmp,ymp] = ndgrid(zrmp,zsmp);
 
 % viscosity (velocity, passive scalar)
-visc0 = 0e+0;
-visc1 = 0e-2;
+visc0 = 1e-2;
+visc1 = 1e-2;
 
 % initial condition
-vx  = 0*xm1+1;
+vx  = 0*xm1;
 vy  = 0*xm1;
-ps  = 1-ym1.*ym1; ps(2:end,:)=0;
+ps  = 1-ym1.*ym1; ps(2:end,:)=0; ps=0*ps;
 pr  = 0*xm2;
 
 % forcing
 fvx = 0*xm1;
 fvy = 0*xm1;
-fps = 0*xm1;%fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+fps = 0*xm1; fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
 
 % BC
 vxb = vx;
@@ -250,17 +250,17 @@ psb = ps;
 
 % Restrictions
 Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
-Ryvx = Ism1(2:end-1,:);                  % dir-dir
+Ryvx = Ism1(1:end-1,:);                  % dir-dir
 Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
 Ryvy = Ism1(2:end-1,:);                  % dir-dir
-Rxps = Irm1(2:end-0,:); % ps             % dir-neu
+Rxps = Irm1(2:end-1,:); % ps             % dir-neu
 Ryps = Ism1(2:end-1,:);                  % dir-dir
 
 ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 20;
+T   = 00;
 CFL = 0.1;
 
 end
@@ -481,8 +481,10 @@ for it=1:nt
 		bvy = bvy + py;
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
-		vyh = visc_slv(bvy,Sxvy,Syvy,Livy,slv);
-		vxh = visc_slv(bvx,Sxvx,Syvx,Livx,slv);
+		vyh = visc_slv(bvy,Sxvy,Syvy,Livy,slv...
+					  ,Rxvx,Ryvx,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+		vxh = visc_slv(bvx,Sxvx,Syvx,Livx,slv...
+					  ,Rxvy,Ryvy,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 
 		vx  = ABu(Ryvx',Rxvx',vxh) + vxb;
 		vy  = ABu(Ryvy',Rxvy',vyh) + vyb;
@@ -503,7 +505,8 @@ for it=1:nt
 		bps = bps - hlmhltz(psb,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		bps = ABu(Ryps,Rxps,bps);
 
-		psh = visc_slv(bps,Sxps,Syps,Lips,slv);
+		psh = visc_slv(bps,Sxps,Syps,Lips,slv...
+					  ,Rxps,Ryps,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		ps  = ABu(Ryps',Rxps',psh) + psb;
 	end
 
@@ -511,7 +514,7 @@ for it=1:nt
 	% chk
 	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
 	%it,[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]rpause
-	if(mod(it,50)==0 | time==T)
+	if(mod(it,50)==0 | time>=T-1e-6)
 
 		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 		%surf(xm1,ym1,omega);
@@ -541,11 +544,12 @@ for it=1:nt
 		elseif(iftst)
 			mesh(xmp,ymp,psp);
 			view(3)
+			[max(max(abs(ps-pse)))]
 		end
 
 	   	title([casename,', t=',num2str(time,'%4.2f'),]);
 		drawnow
-		mov = [mov,getframe(fig)];
+		if(T ~=0) mov = [mov,getframe(fig)]; end
 	end
 	%---------------------------------------------------
 
@@ -556,23 +560,23 @@ end
 % post process
 
 ['Finished Timestepping']
-['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
+%['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
 % play movie
 %movie(fig,mov,-2,40);
 
-% save as gif
-gname = [cname,'.gif'];
-fps   = 40;
-mov   = [mov,flip(mov)];
-
-for i=1:length(mov)
-	f = mov(i);
-	[img,cmap] = rgb2ind(f.cdata,256);
-	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
-	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
-	end
-end
+% save gif
+%gname = [cname,'.gif'];
+%fps   = 40;
+%mov   = [mov,flip(mov)];
+%
+%for i=1:length(mov)
+%	f = mov(i);
+%	[img,cmap] = rgb2ind(f.cdata,256);
+%	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
+%	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
+%	end
+%end
 
 %===============================================================================
 %end % driver
