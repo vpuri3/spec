@@ -1,5 +1,5 @@
 %
-% pressure project
+% pressure projection operator
 %
 function [vx,vy,pr] = pres_proj(ux,uy,pr1,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 							,Bp,Jrpv,Jspv,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv...
@@ -10,8 +10,9 @@ function [vx,vy,pr] = pres_proj(ux,uy,pr1,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 	if(slv==1) % FDM
 		delp = b0 * fdm(g,Sxp,Syp,Lip);
 	else
-		delp = b0 * fdm(g,Sxp,Syp,Lip);
-		%delp = b0 * cg_pres();
+		delp = b0 * pcg_pres(g,0*g,1e-8,1e3...
+		   	   ,Bv,Biv,Jrpv,Jspv,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv...
+			   ,Rxvx,Ryvx,Rxvy,Ryvy,Sxp,Syp,Lip);
 	end
 
 	[px,py] = vgradp(delp,Bv,Jrpv,Jspv,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv);

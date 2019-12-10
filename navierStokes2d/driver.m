@@ -14,9 +14,8 @@
 %
 %	/todo
 %	- bug in periodic BC
-%	- gmres for pressure
 %	- add references (Fischer JCP 97)
-%	- create usr file to add parameters
+% 	- not seeing 3rd order temporal convergence (walsh)
 %
 %-------------------------------------------------------------------------------
 clear;
@@ -32,7 +31,7 @@ iftst = 0;
 nx1 = 32;
 ny1 = 32;
 
-slv=0; % 0: CG, 1: FDM
+slv=1; % 0: CG, 1: FDM
 
 ifvel  = 1;    % evolve velocity field
 ifpres = 1;    % project velocity field onto a div-free subspace
@@ -80,7 +79,7 @@ casename = 'Lid Driven Cavity';
 cname = 'LDC';
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-2;
+visc0 = 1/5e+3;
 visc1 = 0e-0;
 
 % initial condition
@@ -118,7 +117,7 @@ elseif(ifkov)
 %-------------------------------------------------------------------------------
 % kovazny
 
-casename = 'Kovazny Flow';
+casename = 'Kovasznay Flow';
 cname = 'kov';
 
 a = -0.5; lx = 2.5; ly=2.0;
@@ -165,7 +164,7 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 4.0;
+T   = 20.0;
 CFL = 0.5;
 
 elseif(ifwls)
@@ -182,7 +181,7 @@ xx = a + Lx/2 * (zrmd+1); yy = a + Ly/2 * (zsmd+1); [xmd,ymd]=ndgrid(xx,yy);
 xx = a + Lx/2 * (zrmp+1); yy = a + Ly/2 * (zsmp+1); [xmp,ymp]=ndgrid(xx,yy);
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-2;
+visc0 = 5e-2;
 visc1 = 0e-0;
 
 % initial condition
@@ -213,8 +212,8 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 50.0;
-CFL = 0.5;
+T   = 2.0;
+CFL = 1e-1;
 
 elseif(iftst)
 %------------------------------------------------------------------------------
@@ -320,8 +319,8 @@ g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
 
 %------------------------------------------------------------------------------
 % fast diagonalization setup
-Lx = max(max(xm1))-min(min(xm1));
-Ly = max(max(ym1))-min(min(ym1));
+Lx = abs(sum(xm1(end,:)-xm1(1,:))) / nx1;
+Ly = abs(sum(ym1(:,end)-ym1(:,1))) / ny1;
 
 % Velocity
 Bxv = (Lx/2)*diag(wrm1); Byv = (Ly/2)*diag(wsm1);
@@ -403,7 +402,7 @@ pr1 = pr*0;
 
 if(ifwls)
 	% initialize histories
-	time2 = 0;
+	time2 = -2*dt;
 	time1 = time2 + dt;
 	time  = time1 + dt;
 
@@ -419,10 +418,6 @@ if(ifwls)
 	gvx1 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
 		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 	gvy1 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
-					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	gvx  = mass(fvx,Bm1,Irm1,Ism1) - advect(vx ,vx ,vy ,Bmd,Irm1,Ism1...
-	                   		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	gvy  = mass(fvy,Bm1,Irm1,Ism1) - advect(vy ,vx ,vy ,Bmd,Irm1,Ism1...
 					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 end
 
@@ -506,37 +501,42 @@ for it=1:nt
 		bps = ABu(Ryps,Rxps,bps);
 
 		psh = visc_slv(bps,Sxps,Syps,Lips,slv...
-					  ,Rxps,Ryps,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+					  ,Rxps,Ryps,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+
 		ps  = ABu(Ryps',Rxps',psh) + psb;
 	end
 
 	%---------------------------------------------------
 	% chk
+
+	if(blowup(vx,vy,pr,ps));it, return; end;
 	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
-	%it,[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]rpause
 	if(mod(it,50)==0 | time>=T-1e-6)
 
-		%omega = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		%surf(xm1,ym1,omega);
-
 		% log
-		%[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
+		%[it,L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 
 		% vis
+		om = vort(vx,vy,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+
 		vxp = ABu(Js1p,Jr1p,vx);
 		vyp = ABu(Js1p,Jr1p,vy);
 		prp = ABu(Js2p,Jr2p,pr);
 		psp = ABu(Js1p,Jr1p,ps);
+		psp = ABu(Js1p,Jr1p,ps);
+		omp = ABu(Js1p,Jr1p,om);
 
 		if(ifkov)
-			['infty kovazny v-ve'],[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
-			%['L2 kovazny v-ve'],[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
+			['infty kovazny normalized v-ve']
+			[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))] ./...
+			[max(max(abs(vxe))),max(max(abs(vye)))]
 			contour(xmp,ymp,vxp,20);
 			view(2)
 		elseif(ifwls)
-			['infty walsch v-ve'],[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))]
-			%['L2 walsch v-ve'],[L2(vxe-vx,Bm1),L2(vye-vy,Bm1)]
-			contour(xmp,ymp,vxp,20);
+			['infty walsh v-ve']
+			[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))] ./...
+			[max(max(abs(vxe)))   ,max(max(abs(vye)))]
+			contour(xmp,ymp,omp,30);
 			view(2)
 		elseif(ifLDC)
 			contour(xmp,ymp,vxp,50);
@@ -552,8 +552,6 @@ for it=1:nt
 		if(T ~=0) mov = [mov,getframe(fig)]; end
 	end
 	%---------------------------------------------------
-
-	if(blowup(vx,vy,pr,ps));it, return; end;
 
 end
 %-------------------------------------------------------------------------------
