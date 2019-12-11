@@ -1,2 +1,2 @@
 # spec
-Toy numerical PDE codes
+Numerical PDEs

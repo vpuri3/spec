@@ -7,7 +7,7 @@
 %   + Dirichlet/Neumann BC
 %
 %===============================================================================
-function driver
+%function driver
 %
 %-------------------------------------------------------------------------------
 %
@@ -19,9 +19,11 @@ clf; format compact; format shorte;
 
 n1 = 32;
 nd = ceil(1.5*n1);
+np = 10*n1;
 
 [z1,w1] = zwgll(n1-1);
 [zd,wd] = zwgll(nd-1);
+[zp,~ ] = zwgll(np-1);
 
 I1 = eye(n1);
 Id = eye(nd);
@@ -33,6 +35,7 @@ Lx = 1;
 
 [x1] = Lx*ndgrid(z1);
 [xd] = Lx*ndgrid(zd);
+[xp] = Lx*ndgrid(zp);
 
 %-------------------------------------------------------------------------------
 % eg: diffusing boundary data into domain
@@ -62,7 +65,7 @@ T   = 5.0;
 CFL = 0.5;
 
 %-------------------------------------------------------------------------------
-% eg: Convection DIffusion
+% eg: Convection Diffusion
 
 % diffusivity
 visc = 1e-1;
@@ -142,6 +145,7 @@ Dd = (1/Lx)*Drd;
 
 % interp matrix
 J1d = interp_mat(zd,z1); % n1 to nd
+J1p = interp_mat(zp,z1); % n1 to np
 
 % mass matrices
 B1  = Lx*diag(w1);
@@ -196,10 +200,11 @@ for it=1:nt
 	u  = R'*uh + ub;
 
 	% vis
-	if(mod(it,100)==0)
-		plot(x1,u,'linewidth',2.0);
+	if(mod(it,100)==0 | time>=T-1e-6)
+		up = J1p*u;
+		plot(xp,up,'linewidth',2.0);
 	   	title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-		pause(0.01);
+		drawnow;
 	end
 
 	if(blowup(u)) return; end;
@@ -210,9 +215,8 @@ end
 
 ['Finished Timestepping']
 
-plot(x1,u,'linewidth',2.0);
 title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
 
 %===============================================================================
-end % driver
+%end % driver
 %===============================================================================

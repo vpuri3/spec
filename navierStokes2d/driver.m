@@ -13,7 +13,8 @@
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- bug in periodic BC
+%	- periodic BC
+%	- pressure driven flow
 %	- add references (Fischer JCP 97)
 % 	- not seeing 3rd order temporal convergence (walsh)
 %
@@ -23,13 +24,13 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-ifkov = 0;
+ifkov = 1;
 ifLDC = 0;
-ifwls = 1;
+ifwls = 0;
 iftst = 0;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 16;
+ny1 = 16;
 
 slv=1; % 0: CG, 1: FDM
 
@@ -372,7 +373,7 @@ Sxpr=Sxpr*diag(1./sqrt(diag(Sxpr'*Bxp*Sxpr)));
 Sypr=Sypr*diag(1./sqrt(diag(Sypr'*Byp*Sypr)));
 Lpr  = diag(Lxpr) + diag(Lypr)';
 Lipr = 1 ./ Lpr;
-Lipr(find(Lipr>1e10)) = 0;
+Lipr(find(abs(Lipr)>1e10)) = 0;
 
 % debugging with explicit matrices
 %J21  = kron(Js21,Jr21);
