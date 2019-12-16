@@ -16,7 +16,6 @@
 %	- periodic BC
 %	- pressure driven flow
 %	- add references (Fischer JCP 97)
-% 	- not seeing 3rd order temporal convergence (walsh)
 %
 %-------------------------------------------------------------------------------
 clear;
@@ -24,17 +23,17 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-ifkov = 1;
+ifkov = 0;
 ifLDC = 0;
-ifwls = 0;
+ifwls = 1;
 iftst = 0;
 
-nx1 = 16;
-ny1 = 16;
+nx1 = 50;
+ny1 = 50;
 
 slv=1; % 0: CG, 1: FDM
 
-ifvel  = 1;    % evolve velocity field
+ifvel  = 1;    % evolve velocity field per Navier-Stokes
 ifpres = 1;    % project velocity field onto a div-free subspace
 ifps   = 0;    % evolve passive scalar per advection diffusion
 %------------
@@ -55,9 +54,9 @@ Drm1 = dhat(zrm1); Dsm1 = dhat(zsm1);
 Drm2 = dhat(zrm2); Dsm2 = dhat(zsm2);
 Drmd = dhat(zrmd); Dsmd = dhat(zsmd);
 
-Irm1 = eye(nx1); Ism1 = eye(ny1);
-Irm2 = eye(nx2); Ism2 = eye(ny2);
-Irmd = eye(nxd); Ismd = eye(nyd);
+Irm1 = speye(nx1); Ism1 = speye(ny1);
+Irm2 = speye(nx2); Ism2 = speye(ny2);
+Irmd = speye(nxd); Ismd = speye(nyd);
 
 Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % vel  -> dealias
 Jr21 = interp_mat(zrm1,zrm2); Js21 = interp_mat(zsm1,zsm2); % pres -> vel
@@ -80,7 +79,7 @@ casename = 'Lid Driven Cavity';
 cname = 'LDC';
 
 % viscosity (velocity, passive scalar)
-visc0 = 1/5e+3;
+visc0 = 1/1e+3;
 visc1 = 0e-0;
 
 % initial condition
@@ -111,8 +110,8 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 10.0;
-CFL = 0.5;
+T   = 50.0;
+CFL = 0.7;
 
 elseif(ifkov)
 %-------------------------------------------------------------------------------
@@ -173,7 +172,7 @@ elseif(ifwls)
 % Walsh
 
 casename = 'Decaying Eddies (Walsh 1992)';
-cname = 'walsh';
+cname = 'walsh_omega';
 
 a = 0; Lx = 2*pi; Ly=2*pi;
 xx = a + Lx/2 * (zrm1+1); yy = a + Ly/2 * (zsm1+1); [xm1,ym1]=ndgrid(xx,yy);
@@ -213,8 +212,8 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 2.0;
-CFL = 1e-1;
+T   = 10.0;
+CFL = 0.5;
 
 elseif(iftst)
 %------------------------------------------------------------------------------
@@ -269,17 +268,17 @@ end
 
 % periodic BC through restriction matrices
 if(ifxperiodic)
-	Rxvx = [eye(nx1-1),[1;zeros(nx1-2,1)]];
+	Rxvx = Irm1(1:end-1,:); Rxvx(1:end)=1;
 	Rxvy = Rxvx;
 	Rxps = Rxvx;
-	Rxpr = [eye(nx2-1),[1;zeros(nx2-2,1)]];
+	Rxpr = Irm2(1:end-1,:); Rxpr(1:end)=1;
 end;
 
 if(ifyperiodic)
-	Ryvx = [eye(ny1-1),[1;zeros(ny1-2,1)]];
+	Ryvx = Ism1(1:end-1,:); Ryvx(1:end)=1;
 	Ryvy = Ryvx;
 	Ryps = Ryvx;
-	Rypr = [eye(ny2-1),[1;zeros(ny2-2,1)]];
+	Rypr = Ism2(1:end-1,:); Rypr(1:end)=1;
 end;
 
 % mask
@@ -399,28 +398,7 @@ time1 = time*0; time2 = 0; time3=0;
 vx1 = vx*0; vx2 = vx1; vx3 = vx2; gvx1 = vx1; gvx2 = vx1; gvx3 = vx1;
 vy1 = vy*0; vy2 = vy1; vy3 = vy2; gvy1 = vy1; gvy2 = vy1; gvy3 = vy1;
 ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
-pr1 = pr*0;
-
-if(ifwls)
-	% initialize histories
-	time2 = -2*dt;
-	time1 = time2 + dt;
-	time  = time1 + dt;
-
-	[vx2,vy2,~ ] = walsh_ex(xm1,ym1,visc0,time2);
-	[vx1,vy1,~ ] = walsh_ex(xm1,ym1,visc0,time1);
-	[vx ,vy ,~ ] = walsh_ex(xm1,ym1,visc0,time );
-	[~  ,~  ,pr] = walsh_ex(xm2,ym2,visc0,time );
-
-	gvx2 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx2,vx2,vy2,Bmd,Irm1,Ism1...
-		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	gvy2 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy2,vx2,vy2,Bmd,Irm1,Ism1...
-					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	gvx1 = mass(fvx,Bm1,Irm1,Ism1) - advect(vx1,vx1,vy1,Bmd,Irm1,Ism1...
-		               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-	gvy1 = mass(fvy,Bm1,Irm1,Ism1) - advect(vy1,vx1,vy1,Bmd,Irm1,Ism1...
-					  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-end
+pr1 = pr*0; pr2 = pr*0;
 
 for it=1:nt
 
@@ -430,6 +408,7 @@ for it=1:nt
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
+		if(it==0) ap=[1 0]; elseif(it==1) ap=[2 -1]; end
 		if(T==0) a=0*a; b=0*b; a(1)=1; end; % steady solve
 		Livx = 1 ./ (b(1) + Lvx);	  	    % FDM
 		Livy = 1 ./ (b(1) + Lvy);
@@ -440,7 +419,7 @@ for it=1:nt
 	vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
 	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
 	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
-				      pr1=pr;
+			 pr2=pr1; pr1=pr;
 
 	% update BC, forcing
 	if(ifwls)
@@ -462,7 +441,8 @@ for it=1:nt
 						  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
-		[px,py]=vgradp(pr1,Bm1,Jr21,Js21,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		pr = ap(1)*pr1 + ap(2)*pr2;
+		[px,py]=vgradp(pr,Bm1,Jr21,Js21,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
@@ -487,7 +467,7 @@ for it=1:nt
 
 		% pressure projection
 		if(ifpres)
- 			[vx,vy,pr] = pres_proj(vx,vy,pr1,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
+ 			[vx,vy,pr] = pres_proj(vx,vy,pr,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 						,Bm2,Jr21,Js21,Irm1,Ism1,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
 						,Sxpr,Sypr,Lipr,Bm1);
 		end
@@ -509,10 +489,17 @@ for it=1:nt
 
 	%---------------------------------------------------
 	% chk
+	if(ifwls) if(it<4)
+		[vxe,vye,~  ] = walsh_ex(xm1,ym1,visc0,time);
+		[~  ,~  ,pre] = walsh_ex(xm2,ym2,visc0,time);
+		vx = vxe;
+		vy = vye;
+		pr = pre;
+	end;end
 
 	if(blowup(vx,vy,pr,ps));it, return; end;
 	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
-	if(mod(it,50)==0 | time>=T-1e-6)
+	if(mod(it,2e2)==0 | time>=T-1e-6)
 
 		% log
 		%[it,L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
@@ -537,7 +524,7 @@ for it=1:nt
 			['infty walsh v-ve']
 			[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))] ./...
 			[max(max(abs(vxe)))   ,max(max(abs(vye)))]
-			contour(xmp,ymp,omp,30);
+			contour(xmp,ymp,omp,20);
 			view(2)
 		elseif(ifLDC)
 			contour(xmp,ymp,vxp,50);
@@ -553,7 +540,6 @@ for it=1:nt
 		if(T ~=0) mov = [mov,getframe(fig)]; end
 	end
 	%---------------------------------------------------
-
 end
 %-------------------------------------------------------------------------------
 % post process
@@ -565,6 +551,7 @@ end
 %movie(fig,mov,-2,40);
 
 % save gif
+
 %gname = [cname,'.gif'];
 %fps   = 40;
 %mov   = [mov,flip(mov)];

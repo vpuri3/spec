@@ -1,7 +1,7 @@
 %
 % pressure projection operator
 %
-function [vx,vy,pr] = pres_proj(ux,uy,pr1,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
+function [vx,vy,pr] = pres_proj(ux,uy,pr,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 							,Bp,Jrpv,Jspv,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv...
 							,Sxp,Syp,Lip,Bv)
 
@@ -26,6 +26,6 @@ function [vx,vy,pr] = pres_proj(ux,uy,pr1,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy,slv...
 	vx = ux + dpvx;
 	vy = uy + dpvy;
 
-	pr = pr1 + delp;
+	pr = pr + delp;
 
 end
