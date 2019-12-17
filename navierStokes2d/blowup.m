@@ -1,9 +1,9 @@
-function ifblow = blowup(u,v,p,s)
+function ifblow = blowup(u,v,p,s,Bv,Bp)
 
-um = dot(u,u);
-vm = dot(v,v);
-pm = dot(p,p);
-sm = dot(s,s);
+um = L2(u,Bv);
+vm = L2(v,Bv);
+pm = L2(p,Bp);
+sm = L2(s,Bv);
 
 ifblow = 0;
 

@@ -25,17 +25,17 @@ format compact; format shorte;
 %------------
 ifkov = 0;
 ifLDC = 0;
-ifwls = 1;
-iftst = 0;
+ifwls = 0;
+iftst = 1;
 
-nx1 = 50;
-ny1 = 50;
+nx1 = 8;
+ny1 = 5;
 
 slv=1; % 0: CG, 1: FDM
 
-ifvel  = 1;    % evolve velocity field per Navier-Stokes
-ifpres = 1;    % project velocity field onto a div-free subspace
-ifps   = 0;    % evolve passive scalar per advection diffusion
+ifvel  = 0;    % evolve velocity field per Navier-Stokes
+ifpres = 0;    % project velocity field onto a div-free subspace
+ifps   = 1;    % evolve passive scalar per advection diffusion
 %------------
 
 nx2 = nx1 - 2;
@@ -212,8 +212,8 @@ ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 10.0;
-CFL = 0.5;
+T   = 5.0;
+CFL = 0.6;
 
 elseif(iftst)
 %------------------------------------------------------------------------------
@@ -222,44 +222,34 @@ elseif(iftst)
 casename = 'Testing';
 cname = 'tst';
 
-[xm1,ym1] = ndgrid(zrm1,zsm1);
-[xm2,ym2] = ndgrid(zrm2,zsm2);
-[xmd,ymd] = ndgrid(zrmd,zsmd);
-[xmp,ymp] = ndgrid(zrmp,zsmp);
+[xm1,ym1] = ndgrid(zrm1,zsm1); [xm2,ym2] = ndgrid(zrm2,zsm2);
+[xmd,ymd] = ndgrid(zrmd,zsmd); [xmp,ymp] = ndgrid(zrmp,zsmp);
 
 % viscosity (velocity, passive scalar)
-visc0 = 1e-2;
-visc1 = 1e-2;
+visc0 = 0e-2;
+visc1 = 0e-2;
 
 % initial condition
-vx  = 0*xm1;
-vy  = 0*xm1;
-ps  = 1-ym1.*ym1; ps(2:end,:)=0; ps=0*ps;
-pr  = 0*xm2;
+vx=1+0*xm1;vy=0*xm1; pr=0*xm2;
+ps=1-ym1.*ym1;%ps=0*ps;
+ps= sin(pi*xm1).*sin(pi*ym1);
 
 % forcing
-fvx = 0*xm1;
-fvy = 0*xm1;
-fps = 0*xm1; fps = sin(pi*xm1).*sin(pi*ym1); pse = fps/2/pi/pi/visc1;
+fvx=0*xm1; fvy=0*xm1;
+fps=0+0*xm1;%fps=sin(pi*xm1).*sin(pi*ym1);pse=fps/2/pi/pi/visc1;
 
 % BC
-vxb = vx;
-vyb = vy;
-psb = ps;
+vxb = vx; vyb = vy; psb = ps;
 
 % Restrictions
-Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
-Ryvx = Ism1(1:end-1,:);                  % dir-dir
-Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
-Ryvy = Ism1(2:end-1,:);                  % dir-dir
-Rxps = Irm1(2:end-1,:); % ps             % dir-neu
-Ryps = Ism1(2:end-1,:);                  % dir-dir
+Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(1:end-1,:);
+Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
+Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
 
-ifxperiodic = 0;
-ifyperiodic = 0;
+ifxperiodic = 1; ifyperiodic = 0;
 
-% T=0 ==> steady
-T   = 00;
+% T=0 ==> steady diffusion eqn
+T   = 10;
 CFL = 0.1;
 
 end
@@ -268,17 +258,17 @@ end
 
 % periodic BC through restriction matrices
 if(ifxperiodic)
-	Rxvx = Irm1(1:end-1,:); Rxvx(1:end)=1;
+	Rxvx = Irm1(1:end-1,:); Rxvx(1,end)=1;
 	Rxvy = Rxvx;
 	Rxps = Rxvx;
-	Rxpr = Irm2(1:end-1,:); Rxpr(1:end)=1;
+	Rxpr = Irm2(1:end-1,:); Rxpr(1,end)=1;
 end;
 
 if(ifyperiodic)
-	Ryvx = Ism1(1:end-1,:); Ryvx(1:end)=1;
+	Ryvx = Ism1(1:end-1,:); Ryvx(1,end)=1;
 	Ryvy = Ryvx;
 	Ryps = Ryvx;
-	Rypr = Ism2(1:end-1,:); Rypr(1:end)=1;
+	Rypr = Ism2(1:end-1,:); Rypr(1,end)=1;
 end;
 
 % mask
@@ -402,9 +392,21 @@ pr1 = pr*0; pr2 = pr*0;
 
 for it=1:nt
 
-	% update time
-	time3=time2; time2=time1; time1=time;
-	time = time1 + dt;
+	% update histories
+	time3=time2; time2=time1; time1=time; time = time + dt;
+
+	vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
+	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
+	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
+			 pr2=pr1; pr1=pr;
+
+	% update BC, forcing
+	if(ifwls)
+		[vxe,vye,~] = walsh_ex(xm1,ym1,visc0,time);
+
+		vxb = vxe; vyb = vye; %psb = psb;
+		%fvx = fvx; fvy = fvy; fps = fps;
+	end
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
@@ -415,22 +417,20 @@ for it=1:nt
 		Lips = 1 ./ (b(1) + Lps);
 	end
 
-	% update histories
-	vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
-	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
-	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
-			 pr2=pr1; pr1=pr;
+	% solve
+	if(ifps)
+		gps1 = mass(fps,Bm1,Irm1,Ism1) - advect(ps1,vx1,vy1,Bmd,Irm1,Ism1...
+									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
-	% update BC, forcing
-	if(ifwls)
-		[vxe,vye,~] = walsh_ex(xm1,ym1,visc0,time);
+		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
+		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Irm1,Ism1);
+		bps = bps - hlmhltz(psb,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+		bps = ABu(Ryps,Rxps,bps);
 
-		vxb = vxe;
-		vyb = vye;
-		%psb = psb;
-		%fvx = fvx;
-		%fvy = fvy;
-		%fps = fps;
+		psh = visc_slv(bps,Sxps,Syps,Lips,slv...
+					  ,Rxps,Ryps,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+
+		ps  = ABu(Ryps',Rxps',psh) + psb;
 	end
 
 	if(ifvel)
@@ -472,23 +472,9 @@ for it=1:nt
 						,Sxpr,Sypr,Lipr,Bm1);
 		end
 	end
-	if(ifps)
-		gps1 = mass(fps,Bm1,Irm1,Ism1) - advect(ps1,vx1,vy1,Bmd,Irm1,Ism1...
-									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
 
-		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
-		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Irm1,Ism1);
-		bps = bps - hlmhltz(psb,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
-		bps = ABu(Ryps,Rxps,bps);
-
-		psh = visc_slv(bps,Sxps,Syps,Lips,slv...
-					  ,Rxps,Ryps,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
-
-		ps  = ABu(Ryps',Rxps',psh) + psb;
-	end
-
-	%---------------------------------------------------
 	% chk
+	%---------------------------------------------------
 	if(ifwls) if(it<4)
 		[vxe,vye,~  ] = walsh_ex(xm1,ym1,visc0,time);
 		[~  ,~  ,pre] = walsh_ex(xm2,ym2,visc0,time);
@@ -497,9 +483,8 @@ for it=1:nt
 		pr = pre;
 	end;end
 
-	if(blowup(vx,vy,pr,ps));it, return; end;
-	%mesh(xm1,ym1,vx),title('vx'),xlabel('x'),ylabel('y'),pause(0.05);
-	if(mod(it,2e2)==0 | time>=T-1e-6)
+	if(blowup(vx,vy,pr,ps,Bm1,Bm2));it, return; end;
+	if(mod(it,2e1)==0 | time>=T-1e-6)
 
 		% log
 		%[it,L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
@@ -532,7 +517,7 @@ for it=1:nt
 		elseif(iftst)
 			mesh(xmp,ymp,psp);
 			view(3)
-			[max(max(abs(ps-pse)))]
+			%[max(max(abs(ps-pse)))]
 		end
 
 	   	title([casename,', t=',num2str(time,'%4.2f'),]);
