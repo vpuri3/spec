@@ -102,52 +102,42 @@ else
 	Ly = abs(sum(ym1(:,end)-ym1(:,1))) / ny1;
 end
 
-if(0)
 %------------------------------------------------------------------------------
-casename = 'Annulus'; cname = 'ans';
+%casename = 'Annulus'; cname = 'ans';
 
 %visc1 = 1e-1; vx=0*ym1; vy=0*xm1; fps=0*xm1; % pure diffusion
 %ps=1+0*xm1; ps(:,2:end)=0;
 %vxb = vx; vyb = vy; psb = ps;
 %r = sqrt(xm1.*xm1 + ym1.*ym1); a = atan2(ym1,xm1);
 
-visc0 = 1/1e2;
-visc1 = 0e-0;
-
-vx = -ym1;%vx(:,2:end) = 0;
-vy =  xm1;%vy(:,2:end) = 0;
-pr =0*xm2;
-ps =0*xm1;
-
-fvx = 0*xm1; fvy = 0*xm1; fps = 0*xm1;
-vxb = vx; vyb = vy; psb = ps;
-
-Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(2:end-1,:);
-Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
-Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
-
-ifxperiodic = 1;
-ifyperiodic = 0;
-
-T   = 10.0;
-CFL = 0.1;
-end
+%visc0 = 1/1e2;
+%visc1 = 0e-0;
+%
+%vx = -ym1;%vx(:,2:end) = 0;
+%vy =  xm1;%vy(:,2:end) = 0;
+%pr =0*xm2; ps =0*xm1;
+%
+%fvx = 0*xm1; fvy = 0*xm1; fps = 0*xm1;
+%vxb = vx; vyb = vy; psb = ps;
+%
+%Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(2:end-1,:);
+%Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
+%Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
+%
+%ifxperiodic = 1;
+%ifyperiodic = 0;
+%
+%T   = 10.0;
+%CFL = 0.5;
 %------------------------------------------------------------------------------
 casename = 'RB'; cname = 'rb';
 
 Ra = 1707.76;
-Pr = 0.71; %air
+Pr = 0.71;
 
 visc0 = Pr;
 visc1 = 1;
 
-% visc0 = 0.023833; %Ra=1e4;Pr=0.71
-% visc1 = 0.033567;
-
-% visc0 = 2.2833e-3; %Ra=1e6;Pr=0.71
-% visc1 = 3.3567e-3;
-
-% initial condition
 vx  = -xm1*0;
 vy  =  ym1*0;
 pr  = 0*xm2;
@@ -156,7 +146,6 @@ ps  = 0*xm1; ps(:,1)=1;
 fvx = 0*xm1; fvy = 0*xm1; fps = 0*xm1; 
 vxb = vx; vyb = vy; psb = ps;
 
-% Restrictions
 Rxvx = Irm1(2:end-1,:); Rxvy = Irm1(2:end-1,:);
 Ryvx = Ism1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
 Rxps = Irm1(1:end-0,:); Ryps = Ism1(2:end-1,:);
@@ -164,7 +153,7 @@ Rxps = Irm1(1:end-0,:); Ryps = Ism1(2:end-1,:);
 ifxperiodic = 1;
 ifyperiodic = 0;
 
-T   = 4.0;
+T   = 5.0;
 CFL = 0.5;
 
 %------------------------------------------------------------------------------
