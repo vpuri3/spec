@@ -21,7 +21,7 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-ifannulus=0;
+ifannulus=1;
 ifrb     =1;
 
 nx1 = 50;
@@ -102,7 +102,7 @@ else
 	Ly = abs(sum(ym1(:,end)-ym1(:,1))) / ny1;
 end
 
-if(ifannulus)
+if(0)
 %------------------------------------------------------------------------------
 casename = 'Annulus'; cname = 'ans';
 
@@ -165,7 +165,7 @@ ifxperiodic = 1;
 ifyperiodic = 0;
 
 T   = 4.0;
-CFL = 0.1;
+CFL = 0.5;
 
 %------------------------------------------------------------------------------
 % setup
@@ -433,7 +433,7 @@ for it=1:nt
 		omp = ABu(Js1p,Jr1p,om);
 
 		%mesh(xmp,ymp,psp); view(3);%max(max(abs(psp)))
-		contour(xmp,ymp,vxp,20);
+		contour(xmp,ymp,vyp,20);
 
 	   	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
 		colorbar
