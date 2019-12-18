@@ -21,10 +21,10 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-ifkov = 1; ifLDC = 0; ifwls = 0; iftst = 0;
+ifkov = 0; ifLDC = 0; ifwls = 1; iftst = 0;
 
-nx1 = 32;
-ny1 = 32;
+nx1 = 50;
+ny1 = 50;
 
 slv=0; % 0: CG, 1: FDM
 
@@ -73,15 +73,6 @@ Jr2p = interp_mat(zrmp,zrm2); Js2p = interp_mat(zsmp,zsm2); % pres -> plt
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(zrmd,zsmd);
 [xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
 [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(zrmp,zsmp);
-[xmp,ymp] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmp,zsmp);
-
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = annulus(1,2,zrm1,zsm1);
-[xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm1,zsm1);
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = annulus(1,2,zrm2,zsm2);
-[xm2,ym2] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm2,zsm2);
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = annulus(1,2,zrmd,zsmd);
-[xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = annulus(1,2,zrmp,zsmp);
 [xmp,ymp] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmp,zsmp);
 
 %-------------------------------------------------------------------------------
@@ -186,8 +177,8 @@ Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(2:end-1,:);
 Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
 Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
 
-ifxperiodic = 0;
-ifyperiodic = 0;
+ifxperiodic = 1;
+ifyperiodic = 1;
 
 % T=0 ==> steady
 T   = 5.0;
