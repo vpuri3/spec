@@ -4,13 +4,15 @@ ze  = [-1;1];
 Jer = interp_mat(zr,ze); % ze to zr
 Jes = interp_mat(zs,ze);
 
-xrp = Jes*[r0;r1];
-yrp = 0*zs;
+xrp = 0*zs;
+yrp = Jes*[-r0;-r1];
 
-xrm = xrp;
-yrm = yrp;
+spn = span-pi/2;
 
-as = Jer*[0;span];
+xrm = Jes*[r0;r1]*cos(spn);
+yrm = Jes*[r0;r1]*sin(spn);
+
+as = Jer*[-pi/2;spn];
 xsm = r0*cos(as);
 ysm = r0*sin(as);
 
