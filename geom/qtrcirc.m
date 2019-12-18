@@ -11,6 +11,8 @@ asp = Jer*[3*pi/4;pi/4];
 xsp  = cos(asp);
 ysp  = sin(asp);
 
+%xsp = Jer*[-1/sqrt(2);1/sqrt(2)]; ysp = 0*zr+1/sqrt(2);
+
 xrp = 0.5 + (zs+1)*(1/sqrt(2)-0.5)/2;
 yrp = 0.5 + (zs+1)*(1/sqrt(2)-0.5)/2;
 

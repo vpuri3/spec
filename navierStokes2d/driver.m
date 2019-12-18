@@ -23,19 +23,16 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-ifkov = 0;
-ifLDC = 0;
-ifwls = 0;
-iftst = 1;
+ifkov = 1; ifLDC = 0; ifwls = 0; iftst = 0;
 
-nx1 = 8;
-ny1 = 5;
+nx1 = 50;
+ny1 = 50;
 
-slv=1; % 0: CG, 1: FDM
+slv=0; % 0: CG, 1: FDM
 
-ifvel  = 0;    % evolve velocity field per Navier-Stokes
-ifpres = 0;    % project velocity field onto a div-free subspace
-ifps   = 1;    % evolve passive scalar per advection diffusion
+ifvel  = 1;    % evolve velocity field per Navier-Stokes
+ifpres = 1;    % project velocity field onto a div-free subspace
+ifps   = 0;    % evolve passive scalar per advection diffusion
 %------------
 
 nx2 = nx1 - 2;
@@ -71,6 +68,15 @@ Jr2p = interp_mat(zrmp,zrm2); Js2p = interp_mat(zsmp,zsm2); % pres -> plt
 [xmd,ymd] = ndgrid(zrmd,zsmd);
 [xmp,ymp] = ndgrid(zrmp,zsmp);
 
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = wwall(zrm1,zsm1);
+[xm1,ym1] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm1,zsm1);
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = wwall(zrm2,zsm2);
+[xm2,ym2] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrm2,zsm2);
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = wwall(zrmd,zsmd);
+[xmd,ymd] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmd,zsmd);
+[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = wwall(zrmp,zsmp);
+[xmp,ymp] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,zrmp,zsmp);
+
 %-------------------------------------------------------------------------------
 % lid driven cavity
 if(ifLDC)
@@ -79,7 +85,7 @@ casename = 'Lid Driven Cavity';
 cname = 'LDC';
 
 % viscosity (velocity, passive scalar)
-visc0 = 1/1e+3;
+visc0 = 1/1e2;
 visc1 = 0e-0;
 
 % initial condition
@@ -88,30 +94,20 @@ vy  = 0*xm1;
 ps  = 0*xm1;
 pr  = 0*xm2;
 
-% forcing
-fvx = 0*xm1;
-fvy = 0*xm1;
-fps = 0*xm1;
-
-% BC
-vxb = vx;
-vyb = vy;
-psb = ps;
+fvx = 0*xm1; fvy = 0*xm1; fps = 0*xm1;
+vxb = vx; vyb = vy; psb = ps;
 
 % Restrictions
-Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
-Ryvx = Ism1(2:end-1,:);                  % dir-dir
-Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
-Ryvy = Ism1(2:end-1,:);                  % dir-dir
-Rxps = Irm1(2:end-1,:); % ps             % dir-dir
-Ryps = Ism1(2:end-1,:);                  % dir-dir
+Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(2:end-1,:);
+Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
+Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
 
 ifxperiodic = 0;
 ifyperiodic = 0;
 
 % T=0 ==> steady
-T   = 50.0;
-CFL = 0.7;
+T   = 5.0;
+CFL = 0.5;
 
 elseif(ifkov)
 %-------------------------------------------------------------------------------
@@ -120,11 +116,11 @@ elseif(ifkov)
 casename = 'Kovasznay Flow';
 cname = 'kov';
 
-a = -0.5; lx = 2.5; ly=2.0;
-xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); [xm1,ym1] = ndgrid(xx,yy);
-xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1); [xm2,ym2] = ndgrid(xx,yy);
-xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1); [xmd,ymd] = ndgrid(xx,yy);  
-xx = a + lx/2 * (zrmp+1) ; yy = a + ly/2 * (zsmp+1); [xmp,ymp] = ndgrid(xx,yy);  
+%a = -0.5; lx = 2.5; ly=2.0;
+%xx = a + lx/2 * (zrm1+1) ; yy = a + ly/2 * (zsm1+1); [xm1,ym1] = ndgrid(xx,yy);
+%xx = a + lx/2 * (zrm2+1) ; yy = a + ly/2 * (zsm2+1); [xm2,ym2] = ndgrid(xx,yy);
+%xx = a + lx/2 * (zrmd+1) ; yy = a + ly/2 * (zsmd+1); [xmd,ymd] = ndgrid(xx,yy);  
+%xx = a + lx/2 * (zrmp+1) ; yy = a + ly/2 * (zsmp+1); [xmp,ymp] = ndgrid(xx,yy);  
 
 % viscosity (velocity, passive scalar)
 Re = 40;
@@ -140,25 +136,13 @@ pr = 0*xm2;
 % exact solution
 [vxe,vye] = kov_ex(xm1,ym1,Re);
 
-% chk
-
-% forcing
-fvx = 0*xm1;
-fvy = 0*xm1;
-fps = 0*xm1;
-
-% BC
-vxb = vxe;
-vyb = vye;
-psb = ps;
+fvx = 0*xm1; fvy = 0*xm1; fps = 0*xm1;
+vxb = vxe; vyb = vye; psb = ps;
 
 % Restrictions
-Rxvx = Irm1(2:end-1,:); % vx             % dir-dir
-Ryvx = Ism1(2:end-1,:);                  % dir-dir
-Rxvy = Irm1(2:end-1,:); % vy             % dir-dir
-Ryvy = Ism1(2:end-1,:);                  % dir-dir
-Rxps = Irm1(2:end-1,:); % ps             % dir-dir
-Ryps = Ism1(2:end-1,:);                  % dir-dir
+Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(2:end-1,:);
+Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
+Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
 
 ifxperiodic = 0;
 ifyperiodic = 0;
@@ -222,35 +206,21 @@ elseif(iftst)
 casename = 'Testing';
 cname = 'tst';
 
+ % geom
 [xm1,ym1] = ndgrid(zrm1,zsm1); [xm2,ym2] = ndgrid(zrm2,zsm2);
 [xmd,ymd] = ndgrid(zrmd,zsmd); [xmp,ymp] = ndgrid(zrmp,zsmp);
-
-% viscosity (velocity, passive scalar)
-visc0 = 0e-2;
-visc1 = 0e-2;
-
-% initial condition
-vx=1+0*xm1;vy=0*xm1; pr=0*xm2;
-ps=1-ym1.*ym1;%ps=0*ps;
-ps= sin(pi*xm1).*sin(pi*ym1);
-
-% forcing
-fvx=0*xm1; fvy=0*xm1;
-fps=0+0*xm1;%fps=sin(pi*xm1).*sin(pi*ym1);pse=fps/2/pi/pi/visc1;
-
-% BC
+ 
+visc1 = 0e-1; vx=-ym1; vy=xm1; fps=0*xm1; % pure conv
+r2=(xm1-0.2).^2+(ym1).^2; ps=exp(-r2/0.01);
+T = 10; CFL = 0.5;
+ifxperiodic = 0; ifyperiodic = 0;
 vxb = vx; vyb = vy; psb = ps;
-
-% Restrictions
-Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(1:end-1,:);
-Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
 Rxps = Irm1(2:end-1,:); Ryps = Ism1(2:end-1,:);
 
-ifxperiodic = 1; ifyperiodic = 0;
-
-% T=0 ==> steady diffusion eqn
-T   = 10;
-CFL = 0.1;
+vxb = vx; vyb = vy; psb = ps;
+visc0 = 0e-2; pr=0*xm2;
+Rxvx = Irm1(2:end-1,:); Ryvx = Ism1(1:end-1,:);
+Rxvy = Irm1(2:end-1,:); Ryvy = Ism1(2:end-1,:);
 
 end
 %------------------------------------------------------------------------------
@@ -258,16 +228,12 @@ end
 
 % periodic BC through restriction matrices
 if(ifxperiodic)
-	Rxvx = Irm1(1:end-1,:); Rxvx(1,end)=1;
-	Rxvy = Rxvx;
-	Rxps = Rxvx;
+	Rxvx = Irm1(1:end-1,:); Rxvx(1,end)=1; Rxvy = Rxvx; Rxps = Rxvx;
 	Rxpr = Irm2(1:end-1,:); Rxpr(1,end)=1;
 end;
 
 if(ifyperiodic)
-	Ryvx = Ism1(1:end-1,:); Ryvx(1,end)=1;
-	Ryvy = Ryvx;
-	Ryps = Ryvx;
+	Ryvx = Ism1(1:end-1,:); Ryvx(1,end)=1; Ryvy = Ryvx; Ryps = Ryvx;
 	Rypr = Ism2(1:end-1,:); Rypr(1,end)=1;
 end;
 
@@ -282,11 +248,8 @@ dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
 
-if(T==0)      % steady
-	nt=1;
-	dt=0;
-else          % movie
-	mov=[];
+if(T==0) nt=1; dt=0; % steady
+else     mov=[];     % movie
 end
 
 % jacobian
@@ -364,7 +327,9 @@ Lpr  = diag(Lxpr) + diag(Lypr)';
 Lipr = 1 ./ Lpr;
 Lipr(find(abs(Lipr)>1e10)) = 0;
 
-% debugging with explicit matrices
+%------------------------------------------------------------------------------
+ifdebug=0;
+if(ifdebug)
 %J21  = kron(Js21,Jr21);
 %Bv   = kron(Byv ,Bxv );
 %Mvx  = kron(Myvx,Mxvx);
@@ -378,6 +343,38 @@ Lipr(find(abs(Lipr)>1e10)) = 0;
 %F = kron(Byp,Axp)+kron(Ayp,Bxp);  ['err in forming E'],max(max(abs(F-E)))
 %e=sort(eig(E)); ['e.vals of exp  mat'],e(1:6)'
 %e=sort(eig(F)); ['e.vals of kron mat'],e(1:6)'
+
+  % operators
+R   = sparse(kron(Ryps,Rxps));
+J1d = sparse(kron(Js1d,Jr1d));
+B1  = sparse(diag(reshape(Bm1,[nx1*ny1,1])));
+Bd  = sparse(diag(reshape(Bmd,[nxd*nyd,1])));
+B1i = sparse(diag(reshape(1./Bm1,[nx1*ny1,1])));
+
+ % lapl op
+G11=sparse(diag(reshape(g11,[nx1*ny1,1])));
+G12=sparse(diag(reshape(g12,[nx1*ny1,1])));
+G22=sparse(diag(reshape(g22,[nx1*ny1,1])));
+G  = [G11 G12; G12 G22];
+Dr = kron(Ism1,Drm1);
+Ds = kron(Dsm1,Irm1);
+D  = [Dr;Ds];
+A  = D'*G*D;
+
+ % advec op
+Cx = reshape(vx,[nx1*ny1,1]);
+Cy = reshape(vy,[nx1*ny1,1]);
+RRX=sparse(diag(reshape(rxm1,[nx1*ny1,1])));
+RRY=sparse(diag(reshape(rym1,[nx1*ny1,1])));
+SSX=sparse(diag(reshape(sxm1,[nx1*ny1,1])));
+SSY=sparse(diag(reshape(sym1,[nx1*ny1,1])));
+Cxd=sparse(diag(J1d*Cx));
+Cyd=sparse(diag(J1d*Cy));
+Dx = RRX*Dr + SSX*Ds;
+Dy = RRY*Dr + SSY*Ds;
+C  = J1d'*Bd*(Cxd*J1d*Dx+Cyd*J1d*Dy);
+plot(eig(full(C)),'o'),pause
+end
 %------------------------------------------------------------------------------
 % time advance
 
@@ -428,7 +425,7 @@ for it=1:nt
 		bps = ABu(Ryps,Rxps,bps);
 
 		psh = visc_slv(bps,Sxps,Syps,Lips,slv...
-					  ,Rxps,Ryps,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+			      ,Bim1,Rxps,Ryps,visc1,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 
 		ps  = ABu(Ryps',Rxps',psh) + psb;
 	end
@@ -458,9 +455,9 @@ for it=1:nt
 		bvy = ABu(Ryvy,Rxvy,bvy);
 
 		vyh = visc_slv(bvy,Sxvy,Syvy,Livy,slv...
-					  ,Rxvx,Ryvx,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+				  ,Bim1,Rxvx,Ryvx,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 		vxh = visc_slv(bvx,Sxvx,Syvx,Livx,slv...
-					  ,Rxvy,Ryvy,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
+				  ,Bim1,Rxvy,Ryvy,visc0,b(1),Bm1,Irm1,Ism1,Drm1,Dsm1,g11,g12,g22);
 
 		vx  = ABu(Ryvx',Rxvx',vxh) + vxb;
 		vy  = ABu(Ryvy',Rxvy',vyh) + vyb;
@@ -483,8 +480,9 @@ for it=1:nt
 		pr = pre;
 	end;end
 
+	%mesh(xm1,ym1,ps),drawnow
 	if(blowup(vx,vy,pr,ps,Bm1,Bm2));it, return; end;
-	if(mod(it,2e1)==0 | time>=T-1e-6)
+	if(mod(it,5e1)==0 | time>=T-1e-6)
 
 		% log
 		%[it,L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
@@ -517,10 +515,10 @@ for it=1:nt
 		elseif(iftst)
 			mesh(xmp,ymp,psp);
 			view(3)
-			%[max(max(abs(ps-pse)))]
+			%max(max(abs(psp)))
 		end
 
-	   	title([casename,', t=',num2str(time,'%4.2f'),]);
+	   	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
 		drawnow
 		if(T ~=0) mov = [mov,getframe(fig)]; end
 	end
@@ -537,17 +535,17 @@ end
 
 % save gif
 
-%gname = [cname,'.gif'];
-%fps   = 40;
-%mov   = [mov,flip(mov)];
-%
-%for i=1:length(mov)
-%	f = mov(i);
-%	[img,cmap] = rgb2ind(f.cdata,256);
-%	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
-%	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
-%	end
-%end
+gname = [cname,'.gif'];
+fps   = 40;
+mov   = [mov,flip(mov)];
+
+for i=1:length(mov)
+	f = mov(i);
+	[img,cmap] = rgb2ind(f.cdata,256);
+	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
+	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
+	end
+end
 
 %===============================================================================
 %end % driver

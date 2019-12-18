@@ -18,7 +18,7 @@ rpp = 0;
 u   = 0;
 k   = 0;
 
-while norm(ra, inf) > tol
+while norm(ra,inf) > tol
 	ha = fdm(ra,Sxp,Syp,Lip);
 	k = k + 1;
 	if (k==maxiter),warning('no conversion.'); return; end;
@@ -27,14 +27,12 @@ while norm(ra, inf) > tol
 	hp = ha;
 	rp = ra;
 	t = dot(rp,hp);
-	if k == 1; u = hp;
-	else; u = hp + (t / dot(rpp,hpp)) * u;
-	end
+	if k == 1; u = hp; else; u = hp + (t / dot(rpp,hpp)) * u; end
 	Au=pres_E(u,Bv,Biv,Jrpv,Jspv,Irv,Isv,Drv,Dsv,rxv,ryv,sxv,syv,Rxvx,Ryvx,Rxvy,Ryvy);
 	a = t / dot(u,Au);
 	x = x + a * u;
 	ra = rp - a * Au;
 end;
-['pcg iter:',num2str(k),', residual:',num2str(norm(ra,inf))];
+['pcg pres: ',num2str(k),', residual:',num2str(norm(ra,inf))];
 
 end
