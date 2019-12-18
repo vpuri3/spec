@@ -1,5 +1,4 @@
-%===============================================================================
-%
+%=============================================================================== %
 %	Driver function for 1 D diffusion equation
 %
 %	du/dt + \vect{c}\dot\grad{u}  = f + nu*\del^2 u
@@ -9,15 +8,9 @@
 %===============================================================================
 %function driver
 %
-%-------------------------------------------------------------------------------
-%
-%	/todo
-%
-%-------------------------------------------------------------------------------
-
 clf; format compact; format shorte;
 
-n1 = 32;
+n1 = 14;
 nd = ceil(1.5*n1);
 np = 10*n1;
 
@@ -28,95 +21,27 @@ np = 10*n1;
 I1 = eye(n1);
 Id = eye(nd);
 
-%-------------------------------------------------------------------------------
-% geometry
-
 Lx = 1;
-
 [x1] = Lx*ndgrid(z1);
 [xd] = Lx*ndgrid(zd);
 [xp] = Lx*ndgrid(zp);
 
 %-------------------------------------------------------------------------------
-% eg: diffusing boundary data into domain
-
-% diffusivity
-visc = 1e-1;
-
-% initial condition
-u = 0*x1; u(end)=1;
-
-% velocity
-v = 0*x1;
-
-% forcing
-f = 0*x1;
-
-% BC
-ub = u;
-
-% Restrictions
-R = I1(2:end-1,:);   % dir-dir
-
-ifperiodic = 0;
-
-% T=0 ==> steady
-T   = 5.0;
-CFL = 0.5;
-
-%-------------------------------------------------------------------------------
-% eg: Convection Diffusion
-
-% diffusivity
-visc = 1e-1;
-
-% initial condition
-u = 0*x1;
-
-% velocity
-v = 1+0*x1;
-
-% forcing
-f = 1+0*x1;
-
-% BC
-ub = u;
-
-% Restrictions
-R = I1(2:end-1,:);   % dir-dir
-
-ifperiodic = 0;
-
-% T=0 ==> steady
-T   = 5.0;
-CFL = 0.5;
-
-%-------------------------------------------------------------------------------
 % eg: Pure Convection
 
-% diffusivity
 visc = 0e-0;
-
-% initial condition
-u = sin(pi*x1);
-
-% velocity
+u = sin(pi*x1).^10;
 v = 1+0*x1;
-
-% forcing
 f = 0+0*x1;
-
-% BC
-ub = u;
-
-% Restrictions
-R = I1(2:end-1,:);   % dir-dir
 
 ifperiodic = 1;
 
-% T=0 ==> steady
+% T=0 ==> steady diffusion
 T   = 5.0;
-CFL = 0.5;
+CFL = 0.1;
+
+ub = u;
+R = I1(2:end-1,:);   % dir-dir
 
 %-------------------------------------------------------------------------------
 % setup
@@ -124,9 +49,7 @@ CFL = 0.5;
 % mask
 msk = diag(R'*R);
 
-if(ifperiodic)
-	R = [eye(n1-1),[1;zeros(n1-2,1)]];
-end;
+if(ifperiodic) R = [eye(n1-1),[1;zeros(n1-2,1)]]; end;
 
 % time stepper
 dx = min(diff(x1));
@@ -137,15 +60,10 @@ dt = T/nt;
 if(T==0); nt=1;dt=0; end; % steady
 
 % diff matrix
-Dr1 = dhat(z1);
-Drd = dhat(zd);
+Dr1 = dhat(z1); Drd = dhat(zd);
+D1 = (1/Lx)*Dr1; Dd = (1/Lx)*Drd;
 
-D1 = (1/Lx)*Dr1;
-Dd = (1/Lx)*Drd;
-
-% interp matrix
-J1d = interp_mat(zd,z1); % n1 to nd
-J1p = interp_mat(zp,z1); % n1 to np
+J1d = interp_mat(zd,z1); J1p = interp_mat(zp,z1);
 
 % mass matrices
 B1  = Lx*diag(w1);
@@ -163,17 +81,10 @@ A = R*A1*R';
 
 % initialize time
 time = 0;
+time0 = 0; time1 = 0; time2 = 0;
 
-% initialize histories
-time0 = 0;
-time1 = 0;
-time2 = 0;
-
-u0 = 0*u;
-u1 = u0;
-u2 = u0;
-g1 = 0*R*u;
-g2 = g1;
+u0 = 0*u; u1 = u0; u2 = u0;
+g1 = 0*R*u; g2 = g1;
 
 for it=1:nt
 
@@ -191,12 +102,11 @@ for it=1:nt
 	
     g1 = R*mass(f,B1) - R*advect(u,v,Bd,D1,J1d);
 
-	r =      a(1)*g1+a(2)*g2+a(3)*g3;
+	r =     a(1)*g1+a(2)*g2+a(3)*g3;
 	r = r - R*mass(b(2)*u1+b(3)*u2+b(4)*u3,B1);
 	r = r - R*hmhltz(ub,b(1),visc,B1,D1);
 
 	uh = H \ r;
-
 	u  = R'*uh + ub;
 
 	% vis
@@ -210,13 +120,6 @@ for it=1:nt
 	if(blowup(u)) return; end;
 
 end
-%-------------------------------------------------------------------------------
-% post process
-
-['Finished Timestepping']
-
-title(['t=',num2str(time),', Step ',num2str(it),' CFL=',num2str(CFL)]);
-
 %===============================================================================
 %end % driver
 %===============================================================================
