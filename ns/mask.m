@@ -1,9 +1,9 @@
 %
 % masks dirichlet boundary points
 %
-function [v] = mask(u,Rx,Ry)
+function [v] = mask(M,u)
 
-	v = ABu(Ry'*Ry,Rx'*Rx,u);
-	%v = msk .* u;
+	%v = ABu(Ry'*Ry,Rx'*Rx,u);
+	v = M .* u;
 
 end

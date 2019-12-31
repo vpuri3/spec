@@ -1,8 +1,8 @@
 %
-function [ux,uy] = grad(u,Ir,Is,Dr,Ds,rx,ry,sx,sy);
+function [ux,uy] = grad(u,Dr,Ds,rx,ry,sx,sy);
 
-	ur = ABu(Is,Dr,u);
-	us = ABu(Ds,Ir,u);
+	ur = ABu([],Dr,u);
+	us = ABu(Ds,[],u);
 
 	ux = rx .* ur + sx .* us;
 	uy = ry .* ur + sy .* us;

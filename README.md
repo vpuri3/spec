@@ -1,2 +1,2 @@
 # spec
-Numerical PDEs
+Numerical PDE codes for fluid-flow type problems

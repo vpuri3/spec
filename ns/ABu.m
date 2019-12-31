@@ -3,6 +3,9 @@
 %
 function v = ABu(As,Br,u)
 
+	if(length(As)==0); v=Br*u ; return; end;
+	if(length(Br)==0); v=u*As'; return; end;
+
 	v = Br*u*As';
 
 end

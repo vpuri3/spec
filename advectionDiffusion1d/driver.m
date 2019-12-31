@@ -10,7 +10,7 @@
 %
 clf; format compact; format shorte;
 
-n1 = 14;
+n1 = 30;
 nd = ceil(1.5*n1);
 np = 10*n1;
 

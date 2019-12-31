@@ -1,5 +1,5 @@
 %
-function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = qtrcirc(zr,zs)
+function [xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(zr,zs)
 ze  = [-1;1];
 Jer = interp_mat(zr,ze); % ze to zr
 Jes = interp_mat(zs,ze);
