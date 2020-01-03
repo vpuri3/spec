@@ -30,13 +30,13 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-Ex  = 1;
-Ey  = 1;
-nx1 = 32;
+Ex  = 4;
+Ey  = 4;
+nx1 = 8;
 ny1 = nx1;
 
 ifvel  = 1;    % evolve velocity field per Navier-Stokes
-ifpres = 0;    % project velocity field onto a div-free subspace
+ifpres = 1;    % project velocity field onto a div-free subspace
 ifps   = 0;    % evolve passive scalar per advection diffusion eqn
 %------------
 
@@ -44,63 +44,53 @@ nx2 = nx1 - 2;
 ny2 = ny1 - 2;
 nxd = ceil(1.5*nx1);
 nyd = ceil(1.5*ny1);
-nxp = 3*nx1;
-nyp = 3*ny1;
 
+% element operators
 [zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1); % vel, scalar
 [zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1); % pres
 [zrmd,wrmd] = zwgll(nxd-1); [zsmd,wsmd] = zwgll(nyd-1); % dealias
-[zrmp,~   ] = zwuni(nxp-1); [zsmp,~   ] = zwgll(nyp-1); % plt
 
-% intra-element operators
 Drm1 = dhat(zrm1); Dsm1 = dhat(zsm1);
 Drm2 = dhat(zrm2); Dsm2 = dhat(zsm2);
 Drmd = dhat(zrmd); Dsmd = dhat(zsmd);
 
-Irm1 = speye(nx1); Ism1 = speye(ny1);
-Irm2 = speye(nx2); Ism2 = speye(ny2);
-Irmd = speye(nxd); Ismd = speye(nyd);
-
 Jr1d = interp_mat(zrmd,zrm1); Js1d = interp_mat(zsmd,zsm1); % vel  -> dealias
 Jr21 = interp_mat(zrm1,zrm2); Js21 = interp_mat(zsm1,zsm2); % pres -> vel
-Jr1p = interp_mat(zrmp,zrm1); Js1p = interp_mat(zsmp,zsm1); % vel  -> plt
-Jr2p = interp_mat(zrmp,zrm2); Js2p = interp_mat(zsmp,zsm2); % pres -> plt
 
-% global operators
-Ixm1 = kron(speye(Ex),Irm1); Iym1 = kron(speye(Ey),Ism1);
-Ixm2 = kron(speye(Ex),Irm2); Iym2 = kron(speye(Ey),Ism2);
-Ixmd = kron(speye(Ex),Irmd); Iymd = kron(speye(Ey),Ismd);
+% local operators
+wxm1 = kron(ones(Ex,1),wrm1); wym1 = kron(ones(Ey,1),wsm1);
+wxm2 = kron(ones(Ex,1),wrm2); wym2 = kron(ones(Ey,1),wsm2);
+wxmd = kron(ones(Ex,1),wrmd); wymd = kron(ones(Ey,1),wsmd);
 
 Dxm1 = kron(speye(Ex),Drm1); Dym1 = kron(speye(Ey),Dsm1);
 Dxm2 = kron(speye(Ex),Drm2); Dym2 = kron(speye(Ey),Dsm2);
 Dxmd = kron(speye(Ex),Drmd); Dymd = kron(speye(Ey),Dsmd);
 
-wxm1 = kron(ones(Ex,1),wrm1); wym1 = kron(ones(Ey,1),wsm1);
-wxm2 = kron(ones(Ex,1),wrm2); wym2 = kron(ones(Ey,1),wsm2);
-wxmd = kron(ones(Ex,1),wrmd); wymd = kron(ones(Ey,1),wsmd);
-
 Jx1d = kron(speye(Ex),Jr1d); Jy1d = kron(speye(Ey),Js1d);
 Jx21 = kron(speye(Ex),Jr21); Jy21 = kron(speye(Ey),Js21);
-Jx1p = kron(speye(Ex),Jr1p); Jy1p = kron(speye(Ey),Js1p);
-Jx2p = kron(speye(Ex),Jr2p); Jy2p = kron(speye(Ey),Js2p);
 
 % bc
 ifxprdc = 0;
 ifyprdc = 0;
 
-Rxvx = Ixm1(2:end-1,:); Ryvx = Ixm1(2:end-1,:); % restriction
-Rxvy = Ixm1(2:end-1,:); Ryvy = Ixm1(2:end-1,:);
-Rxps = Ixm1(2:end-1,:); Ryps = Ixm1(2:end-1,:);
-
-Mvx   = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)'; % mask
-Mvy   = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
-Mps   = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
-Mbdry = 1+0*Mvx; % mask for transmiting boundary data
-
 % global -> local operator
 Qx1 = semq(Ex,nx1-1,ifxprdc); Qy1 = semq(Ey,ny1-1,ifyprdc);
 Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
-Qxd = semq(Ex,nxd-1,ifxprdc); Qyd = semq(Ey,nyd-1,ifyprdc);
+
+nx1g = size(Qx1,2); ny1g = size(Qy1,2);
+Ixm1 = speye(nx1g); Iym1 = speye(ny1g);
+
+Rxvx = Ixm1(2:end-1,:); Ryvx = Iym1(2:end-1,:); % restriction
+Rxvy = Ixm1(2:end-1,:); Ryvy = Iym1(2:end-1,:);
+Rxps = Ixm1(2:end-1,:); Ryps = Iym1(2:end-1,:);
+
+if(ifxprdc) Rxvx = Ixm1; Rxvy = Ixm1; Rxps = Ixm1; end;
+if(ifyprdc) Ryvx = Iym1; Ryvy = Iym1; Ryps = Iym1; end;
+
+Mvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)'; % mask
+Mvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
+Mps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
+Mbd = 1+0*Mvx; % mask for transmiting boundary data
 
 %-------------------------------------------------------------------------------
 % grid
@@ -109,7 +99,6 @@ Qxd = semq(Ex,nxd-1,ifxprdc); Qyd = semq(Ey,nyd-1,ifyprdc);
 xm1g = semmesh(Ex,nx1,0); ym1g = semmesh(Ey,ny1,0);
 xm2g = semmesh(Ex,nx2,0); ym2g = semmesh(Ey,ny2,0);
 xmdg = semmesh(Ex,nxd,0); ymdg = semmesh(Ey,nyd,0);
-xmpg = semmesh(Ex,nxp,0); ympg = semmesh(Ey,nyp,0);
 
 %[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(xm1g,ym1g);
 %[xm1g,ym1g] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xm1g,ym1g);
@@ -117,14 +106,11 @@ xmpg = semmesh(Ex,nxp,0); ympg = semmesh(Ey,nyp,0);
 %[xm2g,ym2g] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xm2g,ym2g);
 %[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(xmdg,ymdg);
 %[xmdg,ymdg] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xmdg,ymdg);
-%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(xmpg,ympg);
-%[xmpg,ympg] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xmpg,ympg);
 
 a = -0.5; lx = 2.5; ly=2.0;
 xx=a+lx/2*(xm1g+1); yy=a+ly/2*(ym1g+1); [xm1g,ym1g] = ndgrid(xx,yy);
 xx=a+lx/2*(xm2g+1); yy=a+ly/2*(ym2g+1); [xm2g,ym2g] = ndgrid(xx,yy);
 xx=a+lx/2*(xmdg+1); yy=a+ly/2*(ymdg+1); [xmdg,ymdg] = ndgrid(xx,yy); 
-xx=a+lx/2*(xmpg+1); yy=a+ly/2*(ympg+1); [xmpg,ympg] = ndgrid(xx,yy);  
 
 % local
 Qx1m = semq(Ex,nx1-1,0); Qy1m = semq(Ey,ny1-1,0);
@@ -164,7 +150,7 @@ casename = 'Kovasznay Flow'; cname = 'kov';
 % viscosity (velocity, passive scalar)
 Re = 40;
 visc0 = 1/Re;
-visc1 = 0e-0;
+visc1 = 1e-0;
 
 % initial condition
 vx = 0*xm1g;
@@ -181,12 +167,25 @@ vxb = vxe; vyb = vye; psb = ps;
 
 % T=0 ==> steady
 T   = 20.0;
-CFL = 0.5;
+CFL = 0.1;
 
+%--- diffusion check
+%visc1 = 1e-0;
+%fps=1+0*xm1g; T=10;
+
+%--- convection check
+%T = 2*pi;
+%CFL = 0.3;
+%visc1 = 0e-0;
+%vx= ym1g;
+%vy=-xm1g;
+%d2=(xm1g+0.3).^2 + (ym1g-0.0).^2;
+%ps=exp(-d2/0.016); max(max(abs(ps)))
+%psb = ps;
 %------------------------------------------------------------------------------
 % time stepper
 
-dx = min(min(abs(diff(xm1))));
+dx = min(min(abs(diff(xm1g))));
 dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
@@ -229,63 +228,65 @@ for it=1:nt
 
 	% solve
 	if(ifps)
-		gps1 = mass(fps,Bm1,Mbdry,Qx1,Qy1) - advect(ps1,vx1,vy1,Qx1,Qy1,Bmd...
-									  ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gps1 = mass(fps,Bm1,Mbd,Qx1,Qy1) - advect(ps1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+									  ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
-		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1);
-		bps = bps - hlmhltz(psb,visc1,b(1),Qx1,Qy1,Bm1,Drm1,Dsm1,g11,g12,g22);
-		bps = ABu(Ryps,Rxps,bps);
+		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Mbd,Qx1,Qy1);
+		bps = bps - hlmhltz(psb,visc1,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
+		bps = mask(bps,Mps);
 
-		psh = visc_slv(bps...
-			      ,Bim1,Rxps,Ryps,visc1,b(1),Bm1,Drm1,Dsm1,g11,g12,g22);
+		psh = pcg_visc(bps,visc1,b(1),Mps,Qx1,Qy1...
+					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
 
-		ps  = ABu(Ryps',Rxps',psh) + psb;
+		ps  = mask(psh,Mps) + psb;
 	end
 
 	if(ifvel)
 		
-		gvx1 = mass(fvx,Bm1,Qx1,Qy1) - advect(vx1,vx1,vy1,Bmd...
-			               		    ,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bm1,Qx1,Qy1) - advect(vy1,vx1,vy1,Bmd...
-						  			,Jr1d,Js1d,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		gvx1 = mass(fvx,Bm1,Mbd,Qx1,Qy1) - advect(vx1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+			               		    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+		gvy1 = mass(fvy,Bm1,Mbd,Qx1,Qy1) - advect(vy1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+						  			,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
-		[px,py]=vgradp(pr,Bm1,Jr21,Js21,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		if(ifpres) [px,py]=vgradp(pr,Qx1,Qy1,Qx2,Qy2...
+					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+		else px=0*vx1;py=0*vx1;
+		end
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
-		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Qx1,Qy1,Bm1);
-		bvx = bvx - hlmhltz(vxb,visc0,b(1),Qx1,Qy1,Bm1,Drm1,Dsm1,g11,g12,g22);
+		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,Mbd,Qx1,Qy1);
+		bvx = bvx - hlmhltz(vxb,visc0,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvx = bvx + px;
-		bvx = ABu(Ryvx,Rxvx,bvx);
+		bvx = mask(bvx,Mvx);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
-		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Qx1,Qy1,Bm1);
-		bvy = bvy - hlmhltz(vyb,visc0,b(1),Qx1,Qy1,Bm1,Drm1,Dsm1,g11,g12,g22);
+		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,Mbd,Qx1,Qy1);
+		bvy = bvy - hlmhltz(vyb,visc0,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvy = bvy + py;
-		bvy = ABu(Ryvy,Rxvy,bvy);
+		bvy = mask(bvy,Mvy);
 
-		vxh = visc_slv(bvx...
-				  ,Bim1,Rxvy,Ryvy,visc0,b(1),Bm1,Drm1,Dsm1,g11,g12,g22);
-		vyh = visc_slv(bvy...
-				  ,Bim1,Rxvx,Ryvx,visc0,b(1),Bm1,Drm1,Dsm1,g11,g12,g22);
+		vxh = pcg_visc(bvx,visc0,b(1),Mvx,Qx1,Qy1...
+					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
+		vyh = pcg_visc(bvy,visc0,b(1),Mvy,Qx1,Qy1...
+					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
 
-		vx  = ABu(Ryvx',Rxvx',vxh) + vxb;
-		vy  = ABu(Ryvy',Rxvy',vyh) + vyb;
+		vx  = mask(vxh,Mvx) + vxb;
+		vy  = mask(vyh,Mvy) + vyb;
 
 		% pressure projection
 		if(ifpres)
- 			[vx,vy,pr] = pres_proj(vx,vy,pr,b(1),Bim1,Rxvx,Ryvx,Rxvy,Ryvy...
-						,Bm2,Jr21,Js21,Drm1,Dsm1,rxm1,rym1,sxm1,sym1...
-						,Bm1);
+ 			[vx,vy,pr] = pres_proj(vx,vy,pr,b(1),Mvx,Mvy,Qx1,Qy1,Qx2,Qy2...
+						,Bm1,Bim1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		end
 	end
 
 	% chk
 	%---------------------------------------------------
-	if(blowup(vx,vy,pr,ps,Bm1,Bm2));it, return; end;
+	if(blowup(vx,vy,pr,ps,Bm1,Bm2,Qx1,Qy1,Qx2,Qy2));it, return; end;
 	if(mod(it,5e1)==0 | time>=T-1e-6)
 
 		% log
@@ -295,20 +296,14 @@ for it=1:nt
 		[max(max(abs(vxe))),max(max(abs(vye)))]
 
 		% vis
-		om = vort(vx,vy,Drm1,Dsm1,rxm1,rym1,sxm1,sym1);
+		if(it==nt) max(max(abs(ps-psb))),end
+		om = vort(vx,vy,Qx1,Qy1,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
-		vxp = ABu(Js1p,Jr1p,vx);
-		vyp = ABu(Js1p,Jr1p,vy);
-		prp = ABu(Js2p,Jr2p,pr);
-		psp = ABu(Js1p,Jr1p,ps);
-		psp = ABu(Js1p,Jr1p,ps);
-		omp = ABu(Js1p,Jr1p,om);
-
-		contour(xmpg,ympg,vxp,20);
-		view(2)
+		contour(xm1g,ym1g,vx,20); view(2);colorbar
+		%mesh(xm1g,ym1g,ps); view(3)
 	   	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
 		drawnow
-		if(T ~=0) mov = [mov,getframe(fig)]; end
+		if(T~=0) mov = [mov,getframe(fig)]; end
 	end
 	%---------------------------------------------------
 end

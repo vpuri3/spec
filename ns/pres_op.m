@@ -1,22 +1,15 @@
 %
-function [Ep] = pres_op(p,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv...
-					  ,Rxvx,Ryvx,Rxvy,Ryvy)
+function [Ep] = pres_op(p,Mvx,Mvy,Qx1,Qy1,Qx2,Qy2...
+					   ,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 
 	% DD'
-	[px,py] = vgradp(p,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
+	[px,py] = vgradp(p,Qx1,Qy1,Qx2,Qy2,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 
-	% QQ
-	px = ABu(Ryvx'*Ryvx,Rxvx'*Rxvx,px);
-	py = ABu(Ryvy'*Ryvy,Rxvy'*Rxvy,py);
-
-	px = Biv .* px;	
-	py = Biv .* py;
-
-	px = ABu(Ryvx'*Ryvx,Rxvx'*Rxvx,px);
-	py = ABu(Ryvy'*Ryvy,Rxvy'*Rxvy,py);
+	% approx hlmhltz inv
+	px = mass(px,Biv,Mvx,Qx1,Qy1);
+	py = mass(py,Biv,Mvy,Qx1,Qy1);
 
 	% DD
-	Ep = diver(px,py,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
+	Ep = diver(px,py,Qx1,Qy1,Qx2,Qy2,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 
 end
-

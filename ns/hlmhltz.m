@@ -1,9 +1,9 @@
 %
 %	(v,b0*u -visc*\del^2 u)
 %
-function [Hu] =  hlmhltz(u,visc,b0,Qx,Qy,B,Dr,Ds,G11,G12,G22)
+function [Hu] =  hlmhltz(u,visc,b0,M,Qx,Qy,B,Dr,Ds,G11,G12,G22)
 
-	Hu =      visc*lapl(u,Qx,Qy,Dr,Ds,G11,G12,G22);
-	Hu = Hu +   b0*mass(u,B,Qx,Qy);
+	Hu =      visc*lapl(u,M,Qx,Qy,Dr,Ds,G11,G12,G22);
+	Hu = Hu +   b0*mass(u,B,M,Qx,Qy);
 
 end

@@ -5,10 +5,9 @@
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
 %-------------------------------------------------------------------------------
 function [x] = pcg_pres(b,x0,tol,maxiter...
-		   	   ,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv...
-			   ,Rxvx,Ryvx,Rxvy,Ryvy);
+		   	   ,Mvx,Mvy,Qx1,Qy1,Qx2,Qy2,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 x  = x0;
-Ax=pres_op(x,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv,Rxvx,Ryvx,Rxvy,Ryvy);
+Ax=pres_op(x,Mvx,Mvy,Qx1,Qy1,Qx2,Qy2,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 ra = b - Ax;
 ha  = 0;
 hp  = 0;
@@ -28,7 +27,7 @@ while norm(ra,inf) > tol
 	rp = ra;
 	t = dot(rp,hp);
 	if k == 1; u = hp; else; u = hp + (t / dot(rpp,hpp)) * u; end
-	Au=pres_op(u,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv,Rxvx,Ryvx,Rxvy,Ryvy);
+	Au=pres_op(u,Mvx,Mvy,Qx1,Qy1,Qx2,Qy2,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 	a = t / dot(u,Au);
 	x = x + a * u;
 	ra = rp - a * Au;

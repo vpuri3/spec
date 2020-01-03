@@ -1,5 +1,7 @@
 %
-function [egy] = L2(u,B);
+function [egy] = L2(u,B,Qx,Qy);
 	vol = sum(sum(B));
-	egy = dot(u.*u,B)/vol;
+
+	uu = ABu(Qy,Qx,u);
+	egy = dot(uu.*uu,B)/vol;
 end

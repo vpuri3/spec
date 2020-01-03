@@ -1,19 +1,19 @@
 %
-% input: Bmd - diag mass mat on quadrature nodes
+% input: Bd - diag mass mat on quadrature nodes
 %        Jd  - interpolation matrix from evaluation
 %              to quadrature nodes
-function [Bu] = mass(u,Bmd,M,Qx,Qy,Jr,Js);
+function [Bu] = mass(u,Bd,M,Qx,Qy,Jr,Js);
 
-ul = ABu(Qy,Qx,u);
-ul = mask(ul,M);
+uu = mask(u,M);
+uu = ABu(Qy,Qx,uu);
 
-if(nargin==5); Bu = Bmd .* ul; return; end;
+if(nargin==5); Jr=[]; Js=[]; end;
 
-ud  = ABu(Js,Jr,ul);
-Bud = Bmd .* ud;
+ud  = ABu(Js,Jr,uu);
+Bud = Bd .* ud;
 Bu  = ABu(Js',Jr',Bud);
 
-Bu = mask(Bu,M);
 Bu = ABu(Qy',Qx',Bu);
+Bu = mask(Bu,M);
 
 end

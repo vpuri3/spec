@@ -1,26 +1,21 @@
 %
 % pressure projection operator
 %
-function [vx,vy,pr] = pres_proj(ux,uy,pr,b0,Biv,Rxvx,Ryvx,Rxvy,Ryvy...
-							,Bp,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv...
-							,Bv)
+function [vx,vy,pr] = pres_proj(ux,uy,pr,b0,Mvx,Mvy,Qx1,Qy1,Qx2,Qy2...
+							,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 
-	g = -diver(ux,uy,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
+	g = -diver(ux,uy,Qx1,Qy1,Qx2,Qy2,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 
-	delp = b0 * pcg_pres(g,0*g,1e-8,1e3...
-	   	   ,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv...
-		   ,Rxvx,Ryvx,Rxvy,Ryvy);
+	delp = b0 * pcg_pres(g,g,1e-8,1e3...
+	   	   ,Mvx,Mvy,Qx1,Qy1,Qx2,Qy2,Bv,Biv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 
-	[px,py] = vgradp(delp,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
+	[px,py] = vgradp(delp,Qx1,Qy1,Qx2,Qy2,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv);
 
-	dpvx = (1/b0) * Biv .* ABu(Ryvx'*Ryvx,Rxvx'*Rxvx,px);
-	dpvy = (1/b0) * Biv .* ABu(Ryvy'*Ryvy,Rxvy'*Rxvy,py);
+	px = mass(px,Biv/b0,Mvx,Qx1,Qy1);
+	py = mass(py,Biv/b0,Mvy,Qx1,Qy1);
 
-	dpvx = ABu(Ryvx'*Ryvx,Rxvx'*Rxvx,dpvx);
-	dpvy = ABu(Ryvy'*Ryvy,Rxvy'*Rxvy,dpvy);
-
-	vx = ux + dpvx;
-	vy = uy + dpvy;
+	vx = ux + px;
+	vy = uy + py;
 
 	pr = pr + delp;
 

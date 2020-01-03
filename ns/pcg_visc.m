@@ -4,10 +4,10 @@
 %
 % ref https://en.wikipedia.org/wiki/Conjugate_gradient_method
 %-------------------------------------------------------------------------------
-function [x] = pcg_visc(b,x0,tol,maxiter...
-				       ,Rx,Ry,visc,b0,B,Bi,Dr,Ds,g11,g12,g22)
-x  = x0;
-Ax = ABu(Ry,Rx,hlmhltz(ABu(Ry',Rx',x),visc,b0,B,Dr,Ds,g11,g12,g22));
+function [x] = pcg_visc(b,visc,b0,M,Qx,Qy...
+					   ,B,Bi,Dr,Ds,g11,g12,g22,tol,maxiter);
+x  = b;
+Ax = hlmhltz(x,visc,b0,M,Qx,Qy,B,Dr,Ds,g11,g12,g22);
 ra = b - Ax;
 ha  = 0;
 hp  = 0;
@@ -18,7 +18,7 @@ u   = 0;
 k   = 0;
 
 while norm(ra, inf) > tol
-	ha = ABu(Ry,Rx,mass(ABu(Ry',Rx',ra),Bi/b0));
+	ha = mass(ra,Bi/b0,M,Qx,Qy);
 	k = k + 1;
 	if (k==maxiter),warning('no conversion.'); return; end;
 	hpp = hp;
@@ -29,7 +29,7 @@ while norm(ra, inf) > tol
 	if k == 1; u = hp;
 	else; u = hp + (t / dot(rpp,hpp)) * u;
 	end
-	Au = ABu(Ry,Rx,hlmhltz(ABu(Ry',Rx',u),visc,b0,B,Dr,Ds,g11,g12,g22));
+	Au = hlmhltz(u,visc,b0,M,Qx,Qy,B,Dr,Ds,g11,g12,g22);
 	a = t / dot(u,Au);
 	x = x + a * u;
 	ra = rp - a * Au;

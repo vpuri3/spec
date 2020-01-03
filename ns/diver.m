@@ -1,11 +1,16 @@
 % DD
 % (q,dudx+dvdy)
-function [DDu] = diver(ux,uy,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
+function [Du] = diver(ux,uy,Qx1,Qy1,Qx2,Qy2,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 
-	[uxdx,uxdy] = grad(ux,Drv,Dsv,rxv,ryv,sxv,syv);
-	[uydx,uydy] = grad(uy,Drv,Dsv,rxv,ryv,sxv,syv);
+	uux = ABu(Qy1,Qx1,ux);
+	uuy = ABu(Qy1,Qx1,uy);
 
-	DDu = ABu(Jspv',Jrpv',Bv.*(uxdx+uydy));
+	[uxdx,~   ] = grad(uux,Drv,Dsv,rxv,ryv,sxv,syv);
+	[~   ,uydy] = grad(uuy,Drv,Dsv,rxv,ryv,sxv,syv);
+
+	Du = ABu(Jspv',Jrpv',Bv.*(uxdx+uydy));
+	Du = ABu(Qy2',Qx2',Du);
+
 end
 
 

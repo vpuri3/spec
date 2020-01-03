@@ -1,11 +1,16 @@
 % DD'
 % (v,-\grad p)
-function [px,py] = vgradp(p,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
+function [px,py] = vgradp(p,Qx1,Qy1,Qx2,Qy2,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 
-	BJp = Bv .* ABu(Jspv,Jrpv,p);
+	pp = ABu(Qy2,Qx2,p);
 
-	px = ABu([],Drv',rxv .* BJp) + ABu(Dsv',[],sxv .* BJp);
-	py = ABu([],Drv',ryv .* BJp) + ABu(Dsv',[],syv .* BJp);
+	Bp = Bv .* ABu(Jspv,Jrpv,pp);
+
+	px = ABu([],Drv',rxv .* Bp) + ABu(Dsv',[],sxv .* Bp);
+	py = ABu([],Drv',ryv .* Bp) + ABu(Dsv',[],syv .* Bp);
+
+	px = ABu(Qy1',Qx1',px);
+	py = ABu(Qy1',Qx1',py);
 
 end
 
