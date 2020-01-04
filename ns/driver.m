@@ -13,32 +13,18 @@
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- spectral --> spectral element
 %	- Preconditioners
 %		- Hlmhltz -> add viscous information
 %		- Pres    -> Schwarz? Soln. to lapl eqn
 %	- artificial viscosity
 %
 %-------------------------------------------------------------------------------
-% notes
-%
-% field variables are defined only on the global mesh
-%
-%-------------------------------------------------------------------------------
 clear;
 clf; fig=gcf;
 format compact; format shorte;
 
-%------------
-Ex  = 4;
-Ey  = 4;
-nx1 = 8;
-ny1 = nx1;
-
-ifvel  = 1;    % evolve velocity field per Navier-Stokes
-ifpres = 1;    % project velocity field onto a div-free subspace
-ifps   = 0;    % evolve passive scalar per advection diffusion eqn
-%------------
+% initialization
+usrinit
 
 nx2 = nx1 - 2;
 ny2 = ny1 - 2;
@@ -70,8 +56,7 @@ Jx1d = kron(speye(Ex),Jr1d); Jy1d = kron(speye(Ey),Js1d);
 Jx21 = kron(speye(Ex),Jr21); Jy21 = kron(speye(Ey),Js21);
 
 % bc
-ifxprdc = 0;
-ifyprdc = 0;
+usrbc
 
 % global -> local operator
 Qx1 = semq(Ex,nx1-1,ifxprdc); Qy1 = semq(Ey,ny1-1,ifyprdc);
@@ -93,26 +78,16 @@ Mps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 Mbd = 1+0*Mvx; % mask for transmiting boundary data
 
 %-------------------------------------------------------------------------------
-% grid
+% geom
 
-% global
+% global 1D mesh
 xm1g = semmesh(Ex,nx1,0); ym1g = semmesh(Ey,ny1,0);
 xm2g = semmesh(Ex,nx2,0); ym2g = semmesh(Ey,ny2,0);
 xmdg = semmesh(Ex,nxd,0); ymdg = semmesh(Ey,nyd,0);
 
-%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(xm1g,ym1g);
-%[xm1g,ym1g] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xm1g,ym1g);
-%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(xm2g,ym2g);
-%[xm2g,ym2g] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xm2g,ym2g);
-%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(xmdg,ymdg);
-%[xmdg,ymdg] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,xmdg,ymdg);
+usrgeom
 
-a = -0.5; lx = 2.5; ly=2.0;
-xx=a+lx/2*(xm1g+1); yy=a+ly/2*(ym1g+1); [xm1g,ym1g] = ndgrid(xx,yy);
-xx=a+lx/2*(xm2g+1); yy=a+ly/2*(ym2g+1); [xm2g,ym2g] = ndgrid(xx,yy);
-xx=a+lx/2*(xmdg+1); yy=a+ly/2*(ymdg+1); [xmdg,ymdg] = ndgrid(xx,yy); 
-
-% local
+% local mesh
 Qx1m = semq(Ex,nx1-1,0); Qy1m = semq(Ey,ny1-1,0);
 Qx2m = semq(Ex,nx2-1,0); Qy2m = semq(Ey,ny2-1,0);
 Qxdm = semq(Ex,nxd-1,0); Qydm = semq(Ey,nyd-1,0);
@@ -143,45 +118,9 @@ g12 = Bm1 .* (rxm1 .* sxm1 + rym1 .* sym1);
 g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
 
 %-------------------------------------------------------------------------------
-% kovazny
+% case setup
+usrcase
 
-casename = 'Kovasznay Flow'; cname = 'kov';
-
-% viscosity (velocity, passive scalar)
-Re = 40;
-visc0 = 1/Re;
-visc1 = 1e-0;
-
-% initial condition
-vx = 0*xm1g;
-vy = 0*xm1g;
-ps = 0*xm1g;
-pr = 0*xm2g;
-
-% exact solution
-[vxe,vye] = kov_ex(xm1g,ym1g,Re);
-
-fvx = 0*xm1g; fvy = 0*xm1g; fps = 0*xm1g;
-
-vxb = vxe; vyb = vye; psb = ps;
-
-% T=0 ==> steady
-T   = 20.0;
-CFL = 0.1;
-
-%--- diffusion check
-%visc1 = 1e-0;
-%fps=1+0*xm1g; T=10;
-
-%--- convection check
-%T = 2*pi;
-%CFL = 0.3;
-%visc1 = 0e-0;
-%vx= ym1g;
-%vy=-xm1g;
-%d2=(xm1g+0.3).^2 + (ym1g-0.0).^2;
-%ps=exp(-d2/0.016); max(max(abs(ps)))
-%psb = ps;
 %------------------------------------------------------------------------------
 % time stepper
 
@@ -217,8 +156,7 @@ for it=1:nt
 			 pr2=pr1; pr1=pr;
 
 	% update BC, forcing
-	%vxb = vx; vyb = vy; psb = psb;
-	%fvx = fvx; fvy = fvy; fps = fps;
+	usrf
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
@@ -284,51 +222,10 @@ for it=1:nt
 		end
 	end
 
-	% chk
-	%---------------------------------------------------
-	if(blowup(vx,vy,pr,ps,Bm1,Bm2,Qx1,Qy1,Qx2,Qy2));it, return; end;
-	if(mod(it,5e1)==0 | time>=T-1e-6)
+	% vis, log
+	usrchk
 
-		% log
-		%[it,L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
-		['infty kovazny normalized v-ve']
-		[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))] ./...
-		[max(max(abs(vxe))),max(max(abs(vye)))]
-
-		% vis
-		if(it==nt) max(max(abs(ps-psb))),end
-		om = vort(vx,vy,Qx1,Qy1,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-
-		contour(xm1g,ym1g,vx,20); view(2);colorbar
-		%mesh(xm1g,ym1g,ps); view(3)
-	   	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
-		drawnow
-		if(T~=0) mov = [mov,getframe(fig)]; end
-	end
-	%---------------------------------------------------
 end
-%-------------------------------------------------------------------------------
-% post process
-
-['Finished Timestepping']
-%['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
-
-% play movie
-%movie(fig,mov,-2,40);
-
-% save gif
-
-%gname = [cname,'.gif'];
-%fps   = 40;
-%mov   = [mov,flip(mov)];
-%
-%for i=1:length(mov)
-%	f = mov(i);
-%	[img,cmap] = rgb2ind(f.cdata,256);
-%	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
-%	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
-%	end
-%end
 
 %===============================================================================
 %end % driver
