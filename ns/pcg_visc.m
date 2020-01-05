@@ -34,6 +34,6 @@ while norm(ra, inf) > tol
 	x = x + a * u;
 	ra = rp - a * Au;
 end;
-['pcg visc:',num2str(k),', residual:',num2str(norm(ra,inf))];
+['pcg visc iter: ',num2str(k),', residual: ',num2str(norm(ra,inf))];
 
 end

@@ -32,6 +32,6 @@ while norm(ra,inf) > tol
 	x = x + a * u;
 	ra = rp - a * Au;
 end;
-['pcg pres: ',num2str(k),', residual:',num2str(norm(ra,inf))];
+['pcg pres iter: ',num2str(k),', residual: ',num2str(norm(ra,inf))];
 
 end
