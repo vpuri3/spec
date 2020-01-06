@@ -9,11 +9,8 @@ function [px,py] = vgradp(p,Qx1,Qy1,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 	px = ABu([],Drv',rxv .* pp) + ABu(Dsv',[],sxv .* pp);
 	py = ABu([],Drv',ryv .* pp) + ABu(Dsv',[],syv .* pp);
 
-	px = ABu(Qy1',Qx1',px); % gather
-	px = ABu(Qy1 ,Qx1 ,px); % scatter
-
-	py = ABu(Qy1',Qx1',py);
-	py = ABu(Qy1,Qx1,py);
+	px = gs(px,Qx1,Qy1);
+	py = gs(py,Qx1,Qy1);
 
 end
 

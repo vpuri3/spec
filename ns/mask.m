@@ -1,9 +1,10 @@
 %
 % masks dirichlet boundary points
 %
-function [v] = mask(M,u)
+function [Mu] = mask(u,M)
 
-	%v = ABu(Ry'*Ry,Rx'*Rx,u);
-	v = M .* u;
+	if(length(M)==0); Mu = u;
+	else              Mu = M .* u;	%Mu = ABu(Ry'*Ry,Rx'*Rx,u);
+	end
 
 end

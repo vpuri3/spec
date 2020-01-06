@@ -13,8 +13,7 @@ ws = G12.*ur + G22.*us;
 
 Au = ABu([],Dr',wr) + ABu(Ds',[],ws);
 
-Au = ABu(Qy',Qx',Au); % gather
-Au = ABu(Qy ,Qx ,Au); % scatter
+Au = gs(Au,Qx,Qy);
 
 Au = mask(Au,M);
 

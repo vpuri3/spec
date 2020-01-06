@@ -3,7 +3,8 @@
 %
 function [Hu] =  hlmhltz(u,visc,b0,M,Qx,Qy,B,Dr,Ds,G11,G12,G22)
 
-	Hu =      visc*lapl(u,M,Qx,Qy,Dr,Ds,G11,G12,G22);
-	Hu = Hu +   b0*mass(u,B,M,Qx,Qy);
+	Hu =      visc*lapl(u,[],[],[],Dr,Ds,G11,G12,G22);
+	Hu = Hu +   b0*mass(u,B,[],[],[]);
 
+	Hu = mass(Hu,[],M,Qx,Qy);
 end

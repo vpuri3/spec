@@ -16,7 +16,7 @@
 %	- Preconditioners
 %		- Hlmhltz -> add viscous information
 %		- Pres    -> Schwarz? Soln. to lapl eqn
-%	- artificial viscosity
+%	- artificial viscosity, stabalization
 %
 %-------------------------------------------------------------------------------
 clear;
@@ -59,7 +59,6 @@ Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
 
 % bc, masks
 [ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc;
-Mbd = 1+0*Mvx; % mask for transmiting boundary data
 
 % local 1D mesh
 [xm1,~] = semmesh(Ex,nx1,0); [ym1,~] = semmesh(Ey,ny1,0);
@@ -130,13 +129,13 @@ for it=1:nt
 
 	% solve
 	if(ifps)
-		gps1 = mass(fps,Bm1,Mbd,Qx1,Qy1) - advect(ps1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+		gps1 = mass(fps,Bm1,[],[],[]) - advect(ps1,vx1,vy1,[],[],[],Bmd...
 									  ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
-		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Mbd,Qx1,Qy1);
-		bps = bps - hlmhltz(psb,visc1,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
-		bps = mask(bps,Mps);
+		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,[],[],[]);
+		bps = bps - hlmhltz(psb,visc1,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
+		bps = mass(bps,[],Mps,Qx1,Qy1);
 
 		psh = pcg_visc(bps,visc1,b(1),Mps,Qx1,Qy1...
 					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
@@ -146,30 +145,30 @@ for it=1:nt
 
 	if(ifvel)
 		
-		gvx1 = mass(fvx,Bm1,Mbd,Qx1,Qy1) - advect(vx1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+		gvx1 = mass(fvx,Bm1,[],[],[]) - advect(vx1,vx1,vy1,[],[],[],Bmd...
 			               		    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bm1,Mbd,Qx1,Qy1) - advect(vy1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+		gvy1 = mass(fvy,Bm1,[],[],[]) - advect(vy1,vx1,vy1,[],[],[],Bmd...
 						  			,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
-		if(ifpres) [px,py]=vgradp(pr,Qx1,Qy1...
+		if(ifpres) [px,py]=vgradp(pr,[],[]...
 					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		else px=0*vx1;py=0*vx1;
 		end
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
-		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,Mbd,Qx1,Qy1);
-		bvx = bvx - hlmhltz(vxb,visc0,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
+		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,[],[],[]);
+		bvx = bvx - hlmhltz(vxb,visc0,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvx = bvx + px;
-		bvx = mask(bvx,Mvx);
+		bvx = mass(bvx,[],Mvx,Qx1,Qy1);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
-		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,Mbd,Qx1,Qy1);
-		bvy = bvy - hlmhltz(vyb,visc0,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
+		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,[],[],[]);
+		bvy = bvy - hlmhltz(vyb,visc0,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvy = bvy + py;
-		bvy = mask(bvy,Mvy);
+		bvy = mass(bvy,[],Mvy,Qx1,Qy1);
 
 		vxh = pcg_visc(bvx,visc0,b(1),Mvx,Qx1,Qy1...
 					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
@@ -258,8 +257,8 @@ T = 10.0;
 % time stepper
 CFL = 0.4;
 
-xm1g = unique(xm1); dx = min(min(abs(diff(xm1g)))); clear xm1g;
-ym1g = unique(ym1); dy = min(min(abs(diff(ym1g)))); clear ym1g;
+xm1g = unique(xm1); dx = min(min(abs(diff(xm1g))));
+ym1g = unique(ym1); dy = min(min(abs(diff(ym1g))));
 dx = min(dx,dy);
 dt = dx*CFL/1;
 nt = floor(T/dt);
@@ -273,7 +272,7 @@ function [vxb,vyb,prb,psb,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time)
 
 Re = 40;
 
-[vxe,vye] = kov_ex(xm1,ym1,Re); 	% exact solution
+[vxe,vye] = kov_ex(xm1,ym1,Re);
 vxb = vxe;
 vyb = vye;
 prb = 0*xm2;
@@ -292,9 +291,9 @@ if(blowup(vx,vy,pr,ps));it, return; end;
 persistent casename, cname, mov
 
 if(it==0)
-casename = 'Lid-Driven Cavity';
-cname = 'ldc';
-mov = []; % movie
+	casename = 'Kovazney';
+	cname = 'kov';
+	mov = []; % movie
 end
 
 % vis, log

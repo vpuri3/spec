@@ -16,8 +16,7 @@ Cud = cxd.*uxd + cyd.*uyd;
 Cud = Bmd.*Cud;
 Cu  = ABu(Js',Jr',Cud);
 
-Cu = ABu(Qy',Qx',Cu); % gather
-Cu = ABu(Qy ,Qx ,Cu); % scatter
+Cu = gs(Cu,Qx,Qy);
 Cu = mask(Cu,M);
 
 end
