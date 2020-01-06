@@ -1,4 +1,4 @@
-function [z] = semmesh(E,lx1,ifcheby)
+function [z,w] = semmesh(E,lx1,ifcheby)
 %
 % creates 1D sem mesh of poly. order lx1-1
 % and e elements [-1,1].
@@ -17,11 +17,11 @@ else
 end
 
 z = kron(diff(ze),z0) + kron(ze(1:end-1),ones(lx1,1));
-z = unique(z);
+%z = unique(z);
 
-Q = semq(E,lx1-1,0);
 w = kron(diff(ze),w0);
-w = Q'*w;
+%Q = semq(E,lx1-1,0);
+%w = Q'*w;
 
 %figure;plot(z,z*0,'kx');grid on; sum(w)
 

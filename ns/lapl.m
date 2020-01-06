@@ -4,7 +4,6 @@
 function [Au] = lapl(u,M,Qx,Qy,Dr,Ds,G11,G12,G22)
 
 uu = mask(u,M);
-uu = ABu(Qy,Qx,uu);
 
 ur = ABu([],Dr,uu);
 us = ABu(Ds,[],uu);
@@ -14,7 +13,9 @@ ws = G12.*ur + G22.*us;
 
 Au = ABu([],Dr',wr) + ABu(Ds',[],ws);
 
-Au = ABu(Qy',Qx',Au);
+Au = ABu(Qy',Qx',Au); % gather
+Au = ABu(Qy ,Qx ,Au); % scatter
+
 Au = mask(Au,M);
 
 end

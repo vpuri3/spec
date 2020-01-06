@@ -20,7 +20,7 @@ k   = 0;
 while norm(ra,inf) > tol
 	ha = ra;
 	k = k + 1;
-	if (k==maxiter),warning('no conversion.'); return; end;
+	if(k==maxiter),warning(['pres res:',num2str(norm(ra,inf))]); return; end;
 	hpp = hp;
 	rpp = rp;
 	hp = ha;

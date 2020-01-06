@@ -13,7 +13,6 @@
 %-------------------------------------------------------------------------------
 %
 %	/todo
-%	- Periodic BC
 %	- Preconditioners
 %		- Hlmhltz -> add viscous information
 %		- Pres    -> Schwarz? Soln. to lapl eqn
@@ -58,7 +57,7 @@ Jx21 = kron(speye(Ex),Jr21); Jy21 = kron(speye(Ey),Js21);
 Qx1 = semq(Ex,nx1-1,ifxprdc); Qy1 = semq(Ey,ny1-1,ifyprdc);
 Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
 
-nx1g = size(Qx1,2); ny1g = size(Qy1,2);
+nx1g = size(Qx1,1); ny1g = size(Qy1,1);
 Ixm1 = speye(nx1g); Iym1 = speye(ny1g);
 
 Rxvx = Ixm1(2:end-1,:); Ryvx = Iym1(2:end-1,:); % restriction
@@ -76,37 +75,28 @@ Mbd = 1+0*Mvx; % mask for transmiting boundary data
 %-------------------------------------------------------------------------------
 % geom
 
-% global 1D mesh
-xm1g = semmesh(Ex,nx1,0); ym1g = semmesh(Ey,ny1,0);
-xm2g = semmesh(Ex,nx2,0); ym2g = semmesh(Ey,ny2,0);
-xmdg = semmesh(Ex,nxd,0); ymdg = semmesh(Ey,nyd,0);
+% local 1D mesh
+[xm1,~] = semmesh(Ex,nx1,0); [ym1,~] = semmesh(Ey,ny1,0);
+[xm2,~] = semmesh(Ex,nx2,0); [ym2,~] = semmesh(Ey,ny2,0);
+[xmd,~] = semmesh(Ex,nxd,0); [ymd,~] = semmesh(Ey,nyd,0);
 
-[xm1g,ym1g] = usrgeom(xm1g,ym1g);
-[xm2g,ym2g] = usrgeom(xm2g,ym2g);
-[xmdg,ymdg] = usrgeom(xmdg,ymdg);
-
-% local mesh
-Qx1m = semq(Ex,nx1-1,0); Qy1m = semq(Ey,ny1-1,0);
-Qx2m = semq(Ex,nx2-1,0); Qy2m = semq(Ey,ny2-1,0);
-Qxdm = semq(Ex,nxd-1,0); Qydm = semq(Ey,nyd-1,0);
-
-xm1 = ABu(Qy1m,Qx1m,xm1g); ym1 = ABu(Qy1m,Qx1m,ym1g);
-xm2 = ABu(Qy2m,Qx2m,xm2g); ym2 = ABu(Qy2m,Qx2m,ym2g);
-xmd = ABu(Qydm,Qxdm,xmdg); ymd = ABu(Qydm,Qxdm,ymdg);
+[xm1,ym1] = usrgeom(xm1,ym1);
+[xm2,ym2] = usrgeom(xm2,ym2);
+[xmd,ymd] = usrgeom(xmd,ymd);
 
 % case setup
-[casename,cname,visc0,visc1,vx,vy,pr,ps,T,CFL] = usrcase;
+[casename,cname,visc0,visc1,vx,vy,pr,ps,T,CFL] = usrcase(xm1,ym1,xm2,ym2);
 
 %-------------------------------------------------------------------------------
 % time stepper
-dx = min(min(abs(diff(xm1g))));
+xm1g = unique(xm1); dx = min(min(abs(diff(xm1g)))); clear xm1g;
+ym1g = unique(ym1); dy = min(min(abs(diff(ym1g)))); clear ym1g;
+dx = min(dx,dy);
 dt = dx*CFL/1;
 nt = floor(T/dt);
 dt = T/nt;
 
-if(T==0) nt=1; dt=0; % steady diffusion equation
-else     mov=[];     % movie
-end
+if(T==0) nt=1; dt=0; end % steady diffusion equation
 
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Dxm1,Dym1);
@@ -149,7 +139,7 @@ for it=1:nt
 			 pr2=pr1; pr1=pr;
 
 	% update BC, forcing
-	[vxb,vyb,psb,fvx,fvy,fps] = usrf;
+	[vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1);
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
@@ -182,7 +172,7 @@ for it=1:nt
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
-		if(ifpres) [px,py]=vgradp(pr,Qx1,Qy1,Qx2,Qy2...
+		if(ifpres) [px,py]=vgradp(pr,Qx1,Qy1...
 					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		else px=0*vx1;py=0*vx1;
 		end
@@ -216,7 +206,7 @@ for it=1:nt
 	end
 
 	% vis, log
-	usrchk;
+	usrchk(xm1,ym1,vx,vy,pr,ps,time,T,casename,it,nt);
 
 end
 
@@ -249,17 +239,17 @@ ifyprdc = 0;
 
 end
 %------------------------------------------------------------------------------
-function [xg,yg] = usrgeom(x1d,y1d)
+function [x,y] = usrgeom(x1d,y1d)
 
 %[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(x1d,y1d);
-%[xg,yg] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,x1d,y1d);
+%[x,y] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,x1d,y1d);
 
 a = -0.5; lx = 2.5; ly=2.0;%a = -1.0; lx = 2.0; ly=2.0;
-xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [xg,yg] = ndgrid(xx,yy);
+xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [x,y] = ndgrid(xx,yy);
 
 end
 %------------------------------------------------------------------------------
-function [casename,cname,visc0,visc1,vx,vy,pr,ps,T,CFL] = usrcase
+function [casename,cname,visc0,visc1,vx,vy,pr,ps,T,CFL]=usrcase(xm1,ym1,xm2,ym2)
 
 % kovazny
 
@@ -271,74 +261,68 @@ visc0 = 1/Re;
 visc1 = 1e-0;
 
 % initial condition
-vx = 0*xm1g;
-vy = 0*xm1g;
-ps = 0*xm1g;
-pr = 0*xm2g;
+vx = 0*xm1;
+vy = 0*xm1;
+ps = 0*xm1;
+pr = 0*xm2;
 
 % T=0 ==> steady
 T   = 10.0;
-CFL = 0.1;
+CFL = 0.4;
 
 %--- diffusion check
 %visc1 = 1e-0;
-%fps=1+0*xm1g; T=10;
+%fps=1+0*xm1; T=10;
 
 %--- convection check
 %T = 2*pi;
 %CFL = 0.3;
 %visc1 = 0e-0;
-%vx= ym1g;
-%vy=-xm1g;
-%d2=(xm1g+0.3).^2 + (ym1g-0.0).^2;
+%vx= ym1;
+%vy=-xm1;
+%d2=(xm1+0.3).^2 + (ym1g-0.0).^2;
 %ps=exp(-d2/0.016);
 %psb = ps;
 
 end
 %------------------------------------------------------------------------------
-function [vxb,vyb,psb,fvx,fvy,fps] = usrf
+function [vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1)
 
-if(T==0)
-	[vxe,vye] = kov_ex(xm1g,ym1g,Re); 	% exact solution
-	vxb = vxe;
-	vyb = vye;
-	psb = ps;
+Re = 40;
 
-	fvx = 0*xm1g;
-	fvy = 0*xm1g;
-	fps = 0*xm1g;
-end
+[vxe,vye] = kov_ex(xm1,ym1,Re); 	% exact solution
+vxb = vxe;
+vyb = vye;
+psb = 0*xm1;
 
-vxb = vxb;
-vyb = vyb;
-psb = psb;
-
-fvx = fvx;
-fvy = fvy;
-fps = fps;
+fvx = 0*xm1;
+fvy = 0*xm1;
+fps = 0*xm1;
 
 end
 %------------------------------------------------------------------------------
-function usrchk
+function usrchk(xm1,ym1,vx,vy,pr,ps,time,T,casename,it,nt)
 
-if(blowup(vx,vy,pr,ps,Bm1,Bm2,Qx1,Qy1,Qx2,Qy2));it, return; end;
+if(blowup(vx,vy,pr,ps));it, return; end;
 
+% vis, log
 if(mod(it,5e1)==0 | it==nt)
-	% log
-	%[it,L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
+
+	Re = 40;
+	[vxe,vye] = kov_ex(xm1,ym1,Re); 	% exact solution
 
 	['infty kovazny normalized v-ve']
 	[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))] ./...
 	[max(max(abs(vxe))),max(max(abs(vye)))]
 
 	% vis
-	om = vort(vx,vy,Qx1,Qy1,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+	%om = vort(vx,vy,Qx1,Qy1,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
-	contour(xm1g,ym1g,vx,20); view(2);colorbar
-	%mesh(xm1g,ym1g,ps); view(3); if(it==nt) max(max(abs(ps-psb)));end
+	contour(xm1,ym1,vx,20); view(2);colorbar
+	%mesh(xm1,ym1,ps); view(3); if(it==nt) max(max(abs(ps-psb)));end
    	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
 	drawnow
-	if(T~=0) mov = [mov,getframe(fig)]; end
+	%if(T~=0) mov = [mov,getframe(fig)]; end
 end
 
 if(it==nt)

@@ -20,7 +20,7 @@ k   = 0;
 while norm(ra, inf) > tol
 	ha = mass(ra,Bi/b0,M,Qx,Qy);
 	k = k + 1;
-	if (k==maxiter),warning('no conversion.'); return; end;
+	if(k==maxiter),warning(['visc res:',num2str(norm(ra,inf))]); return; end;
 	hpp = hp;
 	rpp = rp;
 	hp = ha;
