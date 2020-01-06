@@ -24,7 +24,7 @@ clf; fig=gcf;
 format compact; format shorte;
 
 % initialization
-[ifvel,ifpres,ifps,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit;
+[ifvel,ifpres,ifps,ifadv,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit;
 
 % element operators
 [zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1); % vel, scalar
@@ -129,7 +129,7 @@ for it=1:nt
 
 	% solve
 	if(ifps)
-		gps1 = mass(fps,Bm1,[],[],[]) - advect(ps1,vx1,vy1,[],[],[],Bmd...
+		gps1 = mass(fps,Bm1,[],[],[]) - ifadv*advect(ps1,vx1,vy1,[],[],[],Bmd...
 									  ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
@@ -145,9 +145,9 @@ for it=1:nt
 
 	if(ifvel)
 		
-		gvx1 = mass(fvx,Bm1,[],[],[]) - advect(vx1,vx1,vy1,[],[],[],Bmd...
+		gvx1 = mass(fvx,Bm1,[],[],[]) - ifadv*advect(vx1,vx1,vy1,[],[],[],Bmd...
 			               		    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bm1,[],[],[]) - advect(vy1,vx1,vy1,[],[],[],Bmd...
+		gvy1 = mass(fvy,Bm1,[],[],[]) - ifadv*advect(vy1,vx1,vy1,[],[],[],Bmd...
 						  			,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
@@ -196,11 +196,12 @@ end
 %	case setup
 %
 %===============================================================================
-function [ifvel,ifpres,ifps,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit
+function [ifvel,ifpres,ifps,ifadv,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit
 
-ifvel  = 1;    % evolve velocity field per Navier-Stokes
-ifpres = 1;    % project velocity field onto a div-free subspace
-ifps   = 0;    % evolve passive scalar per advection diffusion eqn
+ifvel  = 1;    % evolve vel field per N-S eqn
+ifadv  = 1;    % advect vel, sclr
+ifpres = 1;    % project vel onto a div-free subspace
+ifps   = 0;    % evolve sclr per advection diffusion eqn
 
 Ex  = 4;
 Ey  = 4;
