@@ -12,6 +12,8 @@
 %
 %-------------------------------------------------------------------------------
 %
+%	BLOWING UP - Solver code works - data management issue.
+%
 %	/todo
 %	- Preconditioners
 %		- Hlmhltz -> add viscous information
