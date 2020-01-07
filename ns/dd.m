@@ -30,7 +30,7 @@ format compact; format shorte;
 [zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1); % vel, scalar
 [zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1); % pres
 [zrmd,wrmd] = zwgll(nxd-1); [zsmd,wsmd] = zwgll(nyd-1); % dealias
-[zrmp,~   ] = zwgll(nx1*2); [zsmd,~   ] = zwgll(ny1*2); % plotting
+[zrmp,~   ] = zwgll(nx1*2); [zsmp,~   ] = zwgll(ny1*2); % plotting
 
 Drm1 = dhat(zrm1); Dsm1 = dhat(zsm1);
 Drm2 = dhat(zrm2); Dsm2 = dhat(zsm2);
@@ -53,12 +53,12 @@ Dxmd = kron(speye(Ex),Drmd); Dymd = kron(speye(Ey),Dsmd);
 Jx1d = kron(speye(Ex),Jr1d); Jy1d = kron(speye(Ey),Js1d);
 Jx21 = kron(speye(Ex),Jr21); Jy21 = kron(speye(Ey),Js21);
 
+% bc, masks
+[ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc(Ex,Ey,nx1,ny1);
+
 % global -> local operator
 Qx1 = semq(Ex,nx1-1,ifxprdc); Qy1 = semq(Ey,ny1-1,ifyprdc);
 Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
-
-% bc, masks
-[ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc;
 
 % local 1D mesh
 [xm1,~] = semmesh(Ex,nx1,0); [ym1,~] = semmesh(Ey,ny1,0);
@@ -89,10 +89,14 @@ g12 = Bm1 .* (rxm1 .* sxm1 + rym1 .* sym1);
 g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
 
 % case setup
-[visc0,visc1,T,dt,nt] = usrcase;
+[visc0,visc1,T,dt,nt] = usrcase(xm1,ym1);
 
 %------------------------------------------------------------------------------
 % time advance
+
+% initial condition
+time = 0; it=0;
+[vx,vy,pr,ps,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time);
 
 % initialize histories
 time1 = 0; time2 = 0; time3=0;
@@ -101,12 +105,8 @@ vy1 = vy*0; vy2 = vy1; vy3 = vy2; gvy1 = vy1; gvy2 = vy1; gvy3 = vy1;
 ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
 pr1 = pr*0; pr2 = pr*0;
 
-% initial condition
-time = 0; 
-[vx,vy,pr,ps,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time)
-
 % vis, log
-usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt);
+usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt,fig);
 
 for it=1:nt
 
@@ -214,7 +214,7 @@ nyd = ceil(1.5*ny1); nyd = nyd + rem(nyd,2);
 
 end
 %------------------------------------------------------------------------------
-function [ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc
+function [ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc(Ex,Ey,nx1,ny1)
 
 ifxprdc = 0;
 ifyprdc = 0;
@@ -246,7 +246,7 @@ xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [x,y] = ndgrid(xx,yy);
 
 end
 %------------------------------------------------------------------------------
-function [visc0,visc1,T,dt,nt]=usrcase
+function [visc0,visc1,T,dt,nt]=usrcase(xm1,ym1)
 
 % visc (vel, ps)
 Re = 1e2;
@@ -274,8 +274,8 @@ function [vxb,vyb,prb,psb,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time)
 Re = 40;
 
 [vxe,vye] = kov_ex(xm1,ym1,Re);
-vxb = vxe;
-vyb = vye;
+vxb = vxe; vxb(2:end-1,2:end-1)=0;
+vyb = vye; vyb(2:end-1,2:end-1)=0;
 prb = 0*xm2;
 psb = 0*xm1;
 
@@ -285,11 +285,11 @@ fps = 0*xm1;
 
 end
 %------------------------------------------------------------------------------
-function usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt)
+function usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt,fig)
 
 if(blowup(vx,vy,pr,ps));it, return; end;
 
-persistent casename, cname, mov
+persistent casename cname mov;
 
 if(it==0)
 	casename = 'Kovazney';
@@ -298,7 +298,7 @@ if(it==0)
 end
 
 % vis, log
-if(mod(it,5e1)==0 | it==nt)
+if(mod(it,5e1)==0)
 
 	Re = 40;
 	[vxe,vye] = kov_ex(xm1,ym1,Re);
@@ -313,7 +313,7 @@ if(mod(it,5e1)==0 | it==nt)
 	contour(xm1,ym1,vx,20); view(2);colorbar
    	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
 	drawnow
-	mov = [mov,getframe(fig)]; end
+	mov = [mov,getframe(fig)];
 end
 
 if(it==nt)
