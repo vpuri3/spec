@@ -24,7 +24,7 @@ clf; fig=gcf;
 format compact; format shorte;
 
 % initialization
-[ifvel,ifpres,ifps,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit;
+[ifvel,ifpres,ifps,ifadv,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit;
 
 % element operators
 [zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1); % vel, scalar
@@ -51,52 +51,21 @@ Jx1d = kron(speye(Ex),Jr1d); Jy1d = kron(speye(Ey),Js1d);
 Jx21 = kron(speye(Ex),Jr21); Jy21 = kron(speye(Ey),Js21);
 
 % bc
-[ifxprdc,ifyprdc] = usrbc;
+[ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc(Ex,Ey,nx1,ny1);
 
 % global -> local operator
 Qx1 = semq(Ex,nx1-1,ifxprdc); Qy1 = semq(Ey,ny1-1,ifyprdc);
 Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
-
-nx1g = size(Qx1,1); ny1g = size(Qy1,1);
-Ixm1 = speye(nx1g); Iym1 = speye(ny1g);
-
-Rxvx = Ixm1(2:end-1,:); Ryvx = Iym1(2:end-1,:); % restriction
-Rxvy = Ixm1(2:end-1,:); Ryvy = Iym1(2:end-1,:);
-Rxps = Ixm1(2:end-1,:); Ryps = Iym1(2:end-1,:);
-
-if(ifxprdc) Rxvx = Ixm1; Rxvy = Ixm1; Rxps = Ixm1; end;
-if(ifyprdc) Ryvx = Iym1; Ryvy = Iym1; Ryps = Iym1; end;
-
-Mvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)'; % mask
-Mvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
-Mps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
-Mbd = 1+0*Mvx; % mask for transmiting boundary data
-
-%-------------------------------------------------------------------------------
-% geom
 
 % local 1D mesh
 [xm1,~] = semmesh(Ex,nx1,0); [ym1,~] = semmesh(Ey,ny1,0);
 [xm2,~] = semmesh(Ex,nx2,0); [ym2,~] = semmesh(Ey,ny2,0);
 [xmd,~] = semmesh(Ex,nxd,0); [ymd,~] = semmesh(Ey,nyd,0);
 
+% geom
 [xm1,ym1] = usrgeom(xm1,ym1);
 [xm2,ym2] = usrgeom(xm2,ym2);
 [xmd,ymd] = usrgeom(xmd,ymd);
-
-% case setup
-[casename,cname,visc0,visc1,vx,vy,pr,ps,T,CFL] = usrcase(xm1,ym1,xm2,ym2);
-
-%-------------------------------------------------------------------------------
-% time stepper
-xm1g = unique(xm1); dx = min(min(abs(diff(xm1g)))); clear xm1g;
-ym1g = unique(ym1); dy = min(min(abs(diff(ym1g)))); clear ym1g;
-dx = min(dx,dy);
-dt = dx*CFL/1;
-nt = floor(T/dt);
-dt = T/nt;
-
-if(T==0) nt=1; dt=0; end % steady diffusion equation
 
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Dxm1,Dym1);
@@ -116,17 +85,21 @@ g11 = Bm1 .* (rxm1 .* rxm1 + rym1 .* rym1);
 g12 = Bm1 .* (rxm1 .* sxm1 + rym1 .* sym1);
 g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
 
+% case setup, ic
+[visc0,visc1,T,time,vx,vy,pr,ps,dt,nt] = usrcase(xm1,ym1,xm2,ym2);
+
 %------------------------------------------------------------------------------
 % time advance
 
-time = 0; 
-
 % initialize histories
-time1 = 0; time2 = 0; time3=0;
+time1 = time; time2 = time; time3=time;
 vx1 = vx*0; vx2 = vx1; vx3 = vx2; gvx1 = vx1; gvx2 = vx1; gvx3 = vx1;
 vy1 = vy*0; vy2 = vy1; vy3 = vy2; gvy1 = vy1; gvy2 = vy1; gvy3 = vy1;
 ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
 pr1 = pr*0; pr2 = pr*0;
+
+% vis, log
+usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,0,nt,fig);
 
 for it=1:nt
 
@@ -139,7 +112,7 @@ for it=1:nt
 			 pr2=pr1; pr1=pr;
 
 	% update BC, forcing
-	[vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1);
+	[vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1,time);
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
@@ -149,13 +122,13 @@ for it=1:nt
 
 	% solve
 	if(ifps)
-		gps1 = mass(fps,Bm1,Mbd,Qx1,Qy1) - advect(ps1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+		gps1 = mass(fps,Bm1,[],[],[]) - ifadv*advect(ps1,vx1,vy1,[],[],[],Bmd...
 									  ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
-		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,Mbd,Qx1,Qy1);
-		bps = bps - hlmhltz(psb,visc1,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
-		bps = mask(bps,Mps);
+		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,[],[],[]);
+		bps = bps - hlmhltz(psb,visc1,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
+		bps = mass(bps,[],Mps,Qx1,Qy1);
 
 		psh = pcg_visc(bps,visc1,b(1),Mps,Qx1,Qy1...
 					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
@@ -164,31 +137,33 @@ for it=1:nt
 	end
 
 	if(ifvel)
-		
-		gvx1 = mass(fvx,Bm1,Mbd,Qx1,Qy1) - advect(vx1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+		ifadv = 1;
+		prb = 0*xm2;
+
+		gvx1 = mass(fvx,Bm1,[],[],[]) - ifadv*advect(vx1,vx1,vy1,[],[],[],Bmd...
 			               		    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bm1,Mbd,Qx1,Qy1) - advect(vy1,vx1,vy1,Mbd,Qx1,Qy1,Bmd...
+		gvy1 = mass(fvy,Bm1,[],[],[]) - ifadv*advect(vy1,vx1,vy1,[],[],[],Bmd...
 						  			,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
-		if(ifpres) [px,py]=vgradp(pr,Qx1,Qy1...
+		if(ifpres) [px,py]=vgradp(pr,[],[]...
 					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		else px=0*vx1;py=0*vx1;
 		end
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
-		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,Mbd,Qx1,Qy1);
-		bvx = bvx - hlmhltz(vxb,visc0,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
+		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,[],[],[]);
+		bvx = bvx - hlmhltz(vxb,visc0,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvx = bvx + px;
-		bvx = mask(bvx,Mvx);
+		bvx = mass(bvx,[],Mvx,Qx1,Qy1);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
-		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,Mbd,Qx1,Qy1);
-		bvy = bvy - hlmhltz(vyb,visc0,b(1),Mbd,Qx1,Qy1,Bm1,Dxm1,Dym1,g11,g12,g22);
+		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,[],[],[]);
+		bvy = bvy - hlmhltz(vyb,visc0,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvy = bvy + py;
-		bvy = mask(bvy,Mvy);
+		bvy = mass(bvy,[],Mvy,Qx1,Qy1);
 
 		vxh = pcg_visc(bvx,visc0,b(1),Mvx,Qx1,Qy1...
 					  ,Bm1,Bim1,Dxm1,Dym1,g11,g12,g22,1e-8,1e3);
@@ -202,11 +177,13 @@ for it=1:nt
 		if(ifpres)
  			[vx,vy,pr] = pres_proj(vx,vy,pr,b(1),Mvx,Mvy,Qx1,Qy1,Qx2,Qy2...
 						,Bm1,Bim1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+			pr = pr + prb;
 		end
+
 	end
 
 	% vis, log
-	usrchk(xm1,ym1,vx,vy,pr,ps,time,T,casename,it,nt);
+	usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt,fig);
 
 end
 
@@ -215,11 +192,12 @@ end
 %	case setup
 %
 %===============================================================================
-function [ifvel,ifpres,ifps,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit
+function [ifvel,ifpres,ifps,ifadv,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit
 
-ifvel  = 1;    % evolve velocity field per Navier-Stokes
-ifpres = 1;    % project velocity field onto a div-free subspace
-ifps   = 0;    % evolve passive scalar per advection diffusion eqn
+ifvel  = 1;    % evolve vel field per N-S eqn
+ifadv  = 1;    % advect vel, sclr
+ifpres = 1;    % project vel onto a div-free subspace
+ifps   = 0;    % evolve sclr per advection diffusion eqn
 
 Ex  = 4;
 Ey  = 4;
@@ -227,15 +205,29 @@ nx1 = 8;
 ny1 = nx1;
 nx2 = nx1-2;
 ny2 = ny1-2;
-nxd = ceil(1.5*nx1)+rem(0.5*nx1,2);
-nyd = ceil(1.5*ny1)+rem(0.5*ny1,2);
+nxd = ceil(1.5*nx1); nxd = nxd + rem(nxd,2);
+nyd = ceil(1.5*ny1); nyd = nyd + rem(nyd,2);
 
 end
 %------------------------------------------------------------------------------
-function [ifxprdc,ifyprdc] = usrbc
+function [ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc(Ex,Ey,nx1,ny1)
 
 ifxprdc = 0;
 ifyprdc = 0;
+
+nx1l = Ex*nx1; Ixm1 = speye(nx1l);
+ny1l = Ey*ny1; Iym1 = speye(ny1l);
+
+Rxvx = Ixm1(2:end-1,:); Ryvx = Iym1(2:end-1,:); % restriction
+Rxvy = Ixm1(2:end-1,:); Ryvy = Iym1(2:end-1,:);
+Rxps = Ixm1(2:end-1,:); Ryps = Iym1(2:end-1,:);
+
+if(ifxprdc) Rxvx = Ixm1; Rxvy = Ixm1; Rxps = Ixm1; end;
+if(ifyprdc) Ryvx = Iym1; Ryvy = Iym1; Ryps = Iym1; end;
+
+Mvx = diag(Rxvx'*Rxvx) * diag(Ryvx'*Ryvx)'; % mask
+Mvy = diag(Rxvy'*Rxvy) * diag(Ryvy'*Ryvy)';
+Mps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 
 end
 %------------------------------------------------------------------------------
@@ -249,44 +241,36 @@ xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [x,y] = ndgrid(xx,yy);
 
 end
 %------------------------------------------------------------------------------
-function [casename,cname,visc0,visc1,vx,vy,pr,ps,T,CFL]=usrcase(xm1,ym1,xm2,ym2)
+function [visc0,visc1,T,time,vx,vy,pr,ps,dt,nt] = usrcase(xm1,ym1,xm2,ym2)
 
-% kovazny
-
-casename = 'Kovasznay Flow'; cname = 'kov';
-
-% viscosity (velocity, passive scalar)
+% visc (vel, ps)
 Re = 40;
 visc0 = 1/Re;
 visc1 = 1e-0;
 
-% initial condition
+% ic
+time = 0;
 vx = 0*xm1;
 vy = 0*xm1;
 ps = 0*xm1;
 pr = 0*xm2;
 
-% T=0 ==> steady
 T   = 10.0;
 CFL = 0.4;
 
-%--- diffusion check
-%visc1 = 1e-0;
-%fps=1+0*xm1; T=10;
+% time stepper
+xm1g = unique(xm1); dx = min(min(abs(diff(xm1g)))); clear xm1g;
+ym1g = unique(ym1); dy = min(min(abs(diff(ym1g)))); clear ym1g;
+dx = min(dx,dy);
+dt = dx*CFL/1;
+nt = floor(T/dt);
+dt = T/nt;
 
-%--- convection check
-%T = 2*pi;
-%CFL = 0.3;
-%visc1 = 0e-0;
-%vx= ym1;
-%vy=-xm1;
-%d2=(xm1+0.3).^2 + (ym1g-0.0).^2;
-%ps=exp(-d2/0.016);
-%psb = ps;
+if(T==0) nt=1; dt=0; end % steady diffusion equation
 
 end
 %------------------------------------------------------------------------------
-function [vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1)
+function [vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1,time)
 
 Re = 40;
 
@@ -301,15 +285,23 @@ fps = 0*xm1;
 
 end
 %------------------------------------------------------------------------------
-function usrchk(xm1,ym1,vx,vy,pr,ps,time,T,casename,it,nt)
+function usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt,fig)
 
 if(blowup(vx,vy,pr,ps));it, return; end;
 
+persistent casename cname mov;
+
+if(it==0)
+	casename = 'Kovazney';
+	cname = 'kov';
+	mov = []; % movie
+end
+
 % vis, log
-if(mod(it,5e1)==0 | it==nt)
+if(mod(it,5e1)==0 & it~=0 | it==nt)
 
 	Re = 40;
-	[vxe,vye] = kov_ex(xm1,ym1,Re); 	% exact solution
+	[vxe,vye] = kov_ex(xm1,ym1,Re);
 
 	['infty kovazny normalized v-ve']
 	[max(max(abs(vx-vxe))),max(max(abs(vy-vye)))] ./...
@@ -319,21 +311,19 @@ if(mod(it,5e1)==0 | it==nt)
 	%om = vort(vx,vy,Qx1,Qy1,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 	contour(xm1,ym1,vx,20); view(2);colorbar
-	%mesh(xm1,ym1,ps); view(3); if(it==nt) max(max(abs(ps-psb)));end
    	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
 	drawnow
-	%if(T~=0) mov = [mov,getframe(fig)]; end
+	mov = [mov,getframe(fig)];
 end
 
 if(it==nt)
 	['Finished Timestepping']
 	%['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 	
-	% play movie
+	%% play movie
 	%movie(fig,mov,-2,40);
 	
-	% save gif
-	
+	%% save as gif
 	%gname = [cname,'.gif'];
 	%fps   = 40;
 	%mov   = [mov,flip(mov)];
