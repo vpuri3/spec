@@ -4,10 +4,11 @@
 %
 function [px,py] = vgradp(p,Qx1,Qy1,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 
-	pp = Bv .* ABu(Jspv,Jrpv,p);
+	Jp = ABu(Jspv,Jrpv,p);
+	Bp = mass(Jp,Bv,[],[],[]);
 
-	px = ABu([],Drv',rxv .* pp) + ABu(Dsv',[],sxv .* pp);
-	py = ABu([],Drv',ryv .* pp) + ABu(Dsv',[],syv .* pp);
+	px = ABu([],Drv',rxv .* Bp) + ABu(Dsv',[],sxv .* Bp);
+	py = ABu([],Drv',ryv .* Bp) + ABu(Dsv',[],syv .* Bp);
 
 	px = gs(px,Qx1,Qy1);
 	py = gs(py,Qx1,Qy1);

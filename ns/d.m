@@ -1,6 +1,6 @@
 %===============================================================================
 %
-%	Driver function for Navier Stokes solver
+%	Driver function for Navier Stokes equation
 %
 %	\partial_t u + (u\dot\grad) u = -\grad p + nu*\del^2 u + f
 %   				  \grad\dot u = 0
@@ -16,7 +16,7 @@
 %	- Preconditioners
 %		- Hlmhltz -> add viscous information
 %		- Pres    -> Schwarz? Soln. to lapl eqn
-%	- artificial viscosity, stabalization
+%	- artificial viscosity
 %
 %-------------------------------------------------------------------------------
 clear;
@@ -104,7 +104,7 @@ usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,0,nt,fig);
 for it=1:nt
 
 	% update histories
-	time3=time2; time2=time1; time1=time; time=time+dt;
+	time3=time2; time2=time1; time1=time; time = time + dt;
 
 	vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
 	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
@@ -112,7 +112,7 @@ for it=1:nt
 			 pr2=pr1; pr1=pr;
 
 	% update BC, forcing
-	[vxb,vyb,prb,psb,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time);
+	[vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1,time);
 
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
@@ -137,7 +137,9 @@ for it=1:nt
 	end
 
 	if(ifvel)
-		
+		ifadv = 1;
+		prb = 0*xm2;
+
 		gvx1 = mass(fvx,Bm1,[],[],[]) - ifadv*advect(vx1,vx1,vy1,[],[],[],Bmd...
 			               		    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		gvy1 = mass(fvy,Bm1,[],[],[]) - ifadv*advect(vy1,vx1,vy1,[],[],[],Bmd...
@@ -147,7 +149,7 @@ for it=1:nt
 		pr = ap(1)*pr1 + ap(2)*pr2;
 		if(ifpres) [px,py]=vgradp(pr,[],[]...
 					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-		else px=0*xm1; py=0*xm1;
+		else px=0*vx1;py=0*vx1;
 		end
 
 		% viscous solve
@@ -268,14 +270,13 @@ if(T==0) nt=1; dt=0; end % steady diffusion equation
 
 end
 %------------------------------------------------------------------------------
-function [vxb,vyb,prb,psb,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time)
+function [vxb,vyb,psb,fvx,fvy,fps] = usrf(xm1,ym1,time)
 
 Re = 40;
 
-[vxe,vye] = kov_ex(xm1,ym1,Re);
+[vxe,vye] = kov_ex(xm1,ym1,Re); 	% exact solution
 vxb = vxe;
 vyb = vye;
-prb = 0*xm2;
 psb = 0*xm1;
 
 fvx = 0*xm1;
@@ -297,7 +298,7 @@ if(it==0)
 end
 
 % vis, log
-if(mod(it,5e1)==0 & it~=0 | it==nt)
+if(mod(it,5e1)==0 & it~=0)
 
 	Re = 40;
 	[vxe,vye] = kov_ex(xm1,ym1,Re);
