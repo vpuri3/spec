@@ -3,10 +3,10 @@
 %
 function [Au] = lapl(u,M,Qx,Qy,Dr,Ds,G11,G12,G22)
 
-uu = mask(u,M);
+Mu = mask(u,M);
 
-ur = ABu([],Dr,uu);
-us = ABu(Ds,[],uu);
+ur = ABu([],Dr,Mu);
+us = ABu(Ds,[],Mu);
 
 wr = G11.*ur + G12.*us;
 ws = G12.*ur + G22.*us;
