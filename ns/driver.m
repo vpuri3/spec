@@ -57,15 +57,10 @@ Jx21 = kron(speye(Ex),Jr21); Jy21 = kron(speye(Ey),Js21);
 Qx1 = semq(Ex,nx1-1,ifxprdc); Qy1 = semq(Ey,ny1-1,ifyprdc);
 Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
 
-% local 1D mesh
-[xm1,~] = semmesh(Ex,nx1,0); [ym1,~] = semmesh(Ey,ny1,0);
-[xm2,~] = semmesh(Ex,nx2,0); [ym2,~] = semmesh(Ey,ny2,0);
-[xmd,~] = semmesh(Ex,nxd,0); [ymd,~] = semmesh(Ey,nyd,0);
-
 % geom
-[xm1,ym1] = usrgeom(xm1,ym1);
-[xm2,ym2] = usrgeom(xm2,ym2);
-[xmd,ymd] = usrgeom(xmd,ymd);
+[xm1,ym1] = usrgeom(nx1,ny1,Ex,Ey);
+[xm2,ym2] = usrgeom(nx2,ny2,Ex,Ey);
+[xmd,ymd] = usrgeom(nxd,nyd,Ex,Ey);
 
 % jacobian
 [Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Dxm1,Dym1);
@@ -104,12 +99,14 @@ usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,0,nt,fig);
 for it=1:nt
 
 	% update histories
-	time3=time2; time2=time1; time1=time; time=time+dt;
+	time3=time2; time2=time1; time1=time;
 
 	vx3=vx2; vx2=vx1; vx1=vx; gvx3=gvx2; gvx2=gvx1;
 	vy3=vy2; vy2=vy1; vy1=vy; gvy3=gvy2; gvy2=gvy1;
 	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
 			 pr2=pr1; pr1=pr;
+	
+	time = time + dt;
 
 	% update BC, forcing
 	[vxb,vyb,prb,psb,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time);
@@ -145,7 +142,7 @@ for it=1:nt
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
-		if(ifpres) [px,py]=vgradp(pr,[],[]...
+		if(ifpres) [px,py]=vgradp(pr+prb,[],[]...
 					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		else px=0*xm1; py=0*xm1;
 		end
@@ -175,7 +172,6 @@ for it=1:nt
 		if(ifpres)
  			[vx,vy,pr] = pres_proj(vx,vy,pr,b(1),Mvx,Mvy,Qx1,Qy1,Qx2,Qy2...
 						,Bm1,Bim1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-			pr = pr + prb;
 		end
 
 	end
@@ -213,8 +209,8 @@ function [ifxprdc,ifyprdc,Mvx,Mvy,Mps] = usrbc(Ex,Ey,nx1,ny1)
 ifxprdc = 0;
 ifyprdc = 0;
 
-nx1l = Ex*nx1; Ixm1 = speye(nx1l);
-ny1l = Ey*ny1; Iym1 = speye(ny1l);
+Ixm1 = speye(Ex*nx1);
+Iym1 = speye(Ey*ny1);
 
 Rxvx = Ixm1(2:end-1,:); Ryvx = Iym1(2:end-1,:); % restriction
 Rxvy = Ixm1(2:end-1,:); Ryvy = Iym1(2:end-1,:);
@@ -229,13 +225,16 @@ Mps = diag(Rxps'*Rxps) * diag(Ryps'*Ryps)';
 
 end
 %------------------------------------------------------------------------------
-function [x,y] = usrgeom(x1d,y1d)
+function [x,y] = usrgeom(nx,ny,Ex,Ey)
 
-%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(x1d,y1d);
-%[x,y] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,x1d,y1d);
+[x1d,~] = semmesh(Ex,nx,0);
+[y1d,~] = semmesh(Ey,ny,0);
 
 a = -0.5; lx = 2.5; ly=2.0;%a = -1.0; lx = 2.0; ly=2.0;
 xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [x,y] = ndgrid(xx,yy);
+
+%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(x1d,y1d);
+%[x,y] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,x1d,y1d);
 
 end
 %------------------------------------------------------------------------------
@@ -257,8 +256,8 @@ T   = 10.0;
 CFL = 0.4;
 
 % time stepper
-xm1g = unique(xm1); dx = min(min(abs(diff(xm1g)))); clear xm1g;
-ym1g = unique(ym1); dy = min(min(abs(diff(ym1g)))); clear ym1g;
+xm1g = unique(xm1); dx = min(min(abs(diff(xm1g))));
+ym1g = unique(ym1); dy = min(min(abs(diff(ym1g))));
 dx = min(dx,dy);
 dt = dx*CFL/1;
 nt = floor(T/dt);
