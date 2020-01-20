@@ -15,7 +15,7 @@
 %	/todo
 %	- Preconditioners
 %		- Hlmhltz -> add viscous information
-%		- Pres    -> Schwarz? Soln. to lapl eqn
+%		- Pres    -> Schwarz?
 %	- artificial viscosity, stabalization
 %
 %-------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ Qx2 = semq(Ex,nx2-1,ifxprdc); Qy2 = semq(Ey,ny2-1,ifyprdc);
 [Jm2,Jim2,rxm2,rym2,sxm2,sym2] = jac2d(xm2,ym2,Dxm2,Dym2);
 [Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Dxmd,Dymd);
 
-% mass
+% diag mass mats
 Bm1  = Jm1 .* (wxm1*wym1');
 Bm2  = Jm2 .* (wxm2*wym2');
 Bmd  = Jmd .* (wxmd*wymd');
@@ -75,7 +75,7 @@ Bim1 = 1   ./ Bm1;
 
 vol = dot(Bm1,1+0*Bm1);
 
-% laplace operator setup
+% lapl op setup
 g11 = Bm1 .* (rxm1 .* rxm1 + rym1 .* rym1);
 g12 = Bm1 .* (rxm1 .* sxm1 + rym1 .* sym1);
 g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
@@ -106,6 +106,7 @@ for it=1:nt
 	ps3=ps2; ps2=ps1; ps1=ps; gps3=gps2; gps2=gps1;
 			 pr2=pr1; pr1=pr;
 	
+	% update time
 	time = time + dt;
 
 	% update BC, forcing
@@ -114,7 +115,7 @@ for it=1:nt
 	if(it<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
 		if(it==0) ap=[1 0]; elseif(it==1) ap=[2 -1]; end
-		if(T==0) a=0*a; b=0*b; a(1)=1; end; % steady heat eqn solve
+		if(T==0) a=0*a; b=0*b; a(1)=1;			     end % steady
 	end
 
 	% solve
@@ -142,7 +143,7 @@ for it=1:nt
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
-		if(ifpres) [px,py]=vgradp(pr+prb,[],[]...
+		if(ifpres) [px,py]=gradp(pr+prb,[],[]...
 					  			 ,Bm1,Jx21,Jy21,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 		else px=0*xm1; py=0*xm1;
 		end

@@ -1,8 +1,8 @@
 %
 %	DD'
-%	(v,-\grad p)
+%	(v,-\grad p) = (\grad v,p)
 %
-function [px,py] = vgradp(p,Qx1,Qy1,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
+function [px,py] = gradp(p,Qx1,Qy1,Bv,Jrpv,Jspv,Drv,Dsv,rxv,ryv,sxv,syv)
 
 	Jp = ABu(Jspv,Jrpv,p);
 	Bp = mass(Jp,Bv,[],[],[]);

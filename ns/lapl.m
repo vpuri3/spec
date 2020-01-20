@@ -14,7 +14,6 @@ ws = G12.*ur + G22.*us;
 Au = ABu([],Dr',wr) + ABu(Ds',[],ws);
 
 Au = gs(Au,Qx,Qy);
-
 Au = mask(Au,M);
 
 end
