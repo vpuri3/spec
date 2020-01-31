@@ -120,10 +120,11 @@ for it=1:nt
 
 	% solve
 	if(ifps)
-		gps1 = mass(fps,Bm1,[],[],[]) - ifadv*advect(ps1,vx1,vy1,[],[],[],Bmd...
-									  ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+		gps1 = -ifadv*advect(ps1,vx1,vy1,[],[],[],Bmd...
+						    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		bps =       a(1)*gps1+a(2)*gps2+a(3)*gps3;
+		bps = bps + mass(fps,Bm1,[],[],[]);
 		bps = bps - mass((b(2)*ps1+b(3)*ps2+b(4)*ps3),Bm1,[],[],[]);
 		bps = bps - hlmhltz(psb,visc1,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bps = mass(bps,[],Mps,Qx1,Qy1);
@@ -136,10 +137,10 @@ for it=1:nt
 
 	if(ifvel)
 		
-		gvx1 = mass(fvx,Bm1,[],[],[]) - ifadv*advect(vx1,vx1,vy1,[],[],[],Bmd...
-			               		    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
-		gvy1 = mass(fvy,Bm1,[],[],[]) - ifadv*advect(vy1,vx1,vy1,[],[],[],Bmd...
-						  			,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+		gvx1 = -ifadv*advect(vx1,vx1,vy1,[],[],[],Bmd...
+			                ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
+		gvy1 = -ifadv*advect(vy1,vx1,vy1,[],[],[],Bmd...
+						    ,Jx1d,Jy1d,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 		% pressure forcing
 		pr = ap(1)*pr1 + ap(2)*pr2;
@@ -150,12 +151,14 @@ for it=1:nt
 
 		% viscous solve
 		bvx =       a(1)*gvx1+a(2)*gvx2+a(3)*gvx3;
+		bvx = bvx + mass(fvx,Bm1,[],[],[]);
 		bvx = bvx - mass((b(2)*vx1+b(3)*vx2+b(4)*vx3),Bm1,[],[],[]);
 		bvx = bvx - hlmhltz(vxb,visc0,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvx = bvx + px;
 		bvx = mass(bvx,[],Mvx,Qx1,Qy1);
 
 		bvy =       a(1)*gvy1+a(2)*gvy2+a(3)*gvy3;
+		bvy = bvy + mass(fvy,Bm1,[],[],[]);
 		bvy = bvy - mass((b(2)*vy1+b(3)*vy2+b(4)*vy3),Bm1,[],[],[]);
 		bvy = bvy - hlmhltz(vyb,visc0,b(1),[],[],[],Bm1,Dxm1,Dym1,g11,g12,g22);
 		bvy = bvy + py;
