@@ -80,8 +80,8 @@ g11 = Bm1 .* (rxm1 .* rxm1 + rym1 .* rym1);
 g12 = Bm1 .* (rxm1 .* sxm1 + rym1 .* sym1);
 g22 = Bm1 .* (sxm1 .* sxm1 + sym1 .* sym1);
 
-% case setup, ic
-[visc0,visc1,T,time,vx,vy,pr,ps,dt,nt] = usrcase(xm1,ym1,xm2,ym2);
+% case setup, ic, dt
+[visc0,visc1,T,time,vx,vy,pr,ps,dt,nstep] = usrcase(xm1,ym1,xm2,ym2);
 
 %------------------------------------------------------------------------------
 % time advance
@@ -94,9 +94,9 @@ ps1 = ps*0; ps2 = ps1; ps3 = ps2; gps1 = ps1; gps2 = ps1; gps3 = ps1;
 pr1 = pr*0; pr2 = pr*0;
 
 % vis, log
-usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,0,nt,fig);
+usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,0,nstep,fig);
 
-for it=1:nt
+for istep=1:nstep
 
 	% update histories
 	time3=time2; time2=time1; time1=time;
@@ -112,10 +112,11 @@ for it=1:nt
 	% update BC, forcing
 	[vxb,vyb,prb,psb,fvx,fvy,fps] = usrf(xm1,ym1,xm2,ym2,time);
 
-	if(it<=3)
+	% update time-stepper
+	if(istep<=3)
 		[a,b] = bdfext3([time time1 time2 time3]);
-		if(it==0) ap=[1 0]; elseif(it==1) ap=[2 -1]; end
-		if(T==0) a=0*a; b=0*b; a(1)=1;			     end % steady
+		if(istep==0) ap=[1 0]; elseif(istep==1) ap=[2 -1]; end
+		if(T==0) a=0*a; b=0*b; a(1)=1;			           end % steady heat eqn
 	end
 
 	% solve
@@ -181,7 +182,7 @@ for it=1:nt
 	end
 
 	% vis, log
-	usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt,fig);
+	usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,istep,nstep,fig);
 
 end
 
@@ -242,7 +243,7 @@ xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [x,y] = ndgrid(xx,yy);
 
 end
 %------------------------------------------------------------------------------
-function [visc0,visc1,T,time,vx,vy,pr,ps,dt,nt] = usrcase(xm1,ym1,xm2,ym2)
+function [visc0,visc1,T,time,vx,vy,pr,ps,dt,nstep] = usrcase(xm1,ym1,xm2,ym2)
 
 % visc (vel, ps)
 Re = 40;
@@ -264,10 +265,10 @@ xm1g = unique(xm1); dx = min(min(abs(diff(xm1g))));
 ym1g = unique(ym1); dy = min(min(abs(diff(ym1g))));
 dx = min(dx,dy);
 dt = dx*CFL/1;
-nt = floor(T/dt);
-dt = T/nt;
+nstep = floor(T/dt);
+dt = T/nstep;
 
-if(T==0) nt=1; dt=0; end % steady diffusion equation
+if(T==0) nstep=1; dt=0; end % steady diffusion equation
 
 end
 %------------------------------------------------------------------------------
@@ -287,20 +288,20 @@ fps = 0*xm1;
 
 end
 %------------------------------------------------------------------------------
-function usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,it,nt,fig)
+function usrchk(xm1,ym1,xm2,ym2,vx,vy,pr,ps,time,T,istep,nstep,fig)
 
-if(blowup(vx,vy,pr,ps));it, return; end;
+if(blowup(vx,vy,pr,ps));istep, return; end;
 
 persistent casename cname mov;
 
-if(it==0)
+if(istep==0)
 	casename = 'Kovazney';
 	cname = 'kov';
 	mov = []; % movie
 end
 
 % vis, log
-if(mod(it,5e1)==0 & it~=0 | it==nt)
+if(mod(istep,5e1)==0 & istep~=0 | istep==nstep)
 
 	Re = 40;
 	[vxe,vye] = kov_ex(xm1,ym1,Re);
@@ -313,12 +314,12 @@ if(mod(it,5e1)==0 & it~=0 | it==nt)
 	%om = vort(vx,vy,Qx1,Qy1,Dxm1,Dym1,rxm1,rym1,sxm1,sym1);
 
 	contour(xm1,ym1,vx,20); view(2);colorbar
-   	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(it)]);
+   	title([casename,', t=',num2str(time,'%4.2f'),' i=',num2str(istep)]);
 	drawnow
 	mov = [mov,getframe(fig)];
 end
 
-if(it==nt)
+if(istep==nstep)
 	['Finished Timestepping']
 	%['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 	
