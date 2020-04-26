@@ -8,6 +8,7 @@
 %   + Dirichlet/Neumann/Periodic BC
 %
 %===============================================================================
+%
 %function driver
 %
 %-------------------------------------------------------------------------------
@@ -193,8 +194,8 @@ end
 %===============================================================================
 function [ifvel,ifpres,ifps,ifadv,Ex,Ey,nx1,ny1,nx2,ny2,nxd,nyd] = usrinit
 
-ifvel  = 1;    % evolve vel field per N-S eqn
-ifadv  = 1;    % advect vel, sclr
+ifvel  = 1;    % evolve  vel field per NS eqn
+ifadv  = 1;    % advect  vel, sclr
 ifpres = 1;    % project vel onto a div-free subspace
 ifps   = 0;    % evolve sclr per advection diffusion eqn
 

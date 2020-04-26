@@ -1,7 +1,6 @@
 %
-% input: Bd - diag mass mat on quadrature nodes
-%        Jd  - interpolation matrix from evaluation
-%              to quadrature nodes
+% input: B - diag mass mat
+%
 function [Bu] = mass(u,B,M,Qx,Qy);
 
 Mu = mask(u,M);
