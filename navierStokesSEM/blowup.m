@@ -1,4 +1,4 @@
-function ifblow = blowup(u,v,p,s)
+function blowup(u,v,p,s,istep)
 
 um = norm(u,inf);
 vm = norm(v,inf);
@@ -13,8 +13,10 @@ elseif(pm > 1e15); ifblow = 1;
 elseif(sm > 1e15); ifblow = 1; end;
 
 if(ifblow)
-	['Blowup']
-	[um,vm,pm,sm]
+	format compact
+	msg=['Step ',num2str(istep),', u v p ps',newline,num2str([um,vm,pm,sm])];
+	[um,vm,pm,sm];
+	error(msg);
 end
 
 end
