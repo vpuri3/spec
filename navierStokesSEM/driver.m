@@ -14,10 +14,12 @@
 %-------------------------------------------------------------------------------
 %
 %	/todo
+%	- Variable DT time-stepper
 %	- Preconditioners
-%		- Hlmhltz -> add viscous information
-%		- Pres    -> Schwarz?
+%		- Hlmhltz -> add viscous information (somehow?)
+%		- Pres    -> need despeately
 %	- artificial viscosity, stabalization
+%	- add general mesh support
 %
 %-------------------------------------------------------------------------------
 clear;
@@ -262,11 +264,7 @@ T   = 10.0;
 CFL = 0.1;
 
 % time stepper
-%xm1g = unique(xm1); dx = min(min(abs(diff(xm1g))));
-%ym1g = unique(ym1); dy = min(min(abs(diff(ym1g))));
-%dx = min(dx,dy);
-%dt = dx*CFL/1;
-dt=1e-3;
+dt=5e-3;
 nstep = floor(T/dt);
 dt = T/nstep;
 
