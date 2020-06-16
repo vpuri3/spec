@@ -21,7 +21,7 @@ clf; fig=gcf;
 format compact; format shorte;
 
 %------------
-ifkov = 1; ifLDC = 0; ifwls = 0; iftst = 0;
+ifkov = 0; ifLDC = 0; ifwls = 0; ifann=1; iftst = 0;
 
 nx1 = 32;
 ny1 = 32;
@@ -43,7 +43,7 @@ nyp = 10*ny1;
 [zrm1,wrm1] = zwgll(nx1-1); [zsm1,wsm1] = zwgll(ny1-1); % vel, scalar
 [zrm2,wrm2] = zwgll(nx2-1); [zsm2,wsm2] = zwgll(ny2-1); % pres
 [zrmd,wrmd] = zwgll(nxd-1); [zsmd,wsmd] = zwgll(nyd-1); % dealias
-[zrmp,~   ] = zwuni(nxd-1); [zsmp,~   ] = zwgll(nyp-1); % plt
+[zrmp,~   ] = zwuni(nxp-1); [zsmp,~   ] = zwgll(nyp-1); % plt
 
 Drm1 = dhat(zrm1); Dsm1 = dhat(zsm1);
 Drm2 = dhat(zrm2); Dsm2 = dhat(zsm2);
@@ -252,9 +252,9 @@ else     mov=[];     % movie
 end
 
 % jacobian
-[Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Irm1,Ism1,Drm1,Dsm1);
-[Jm2,Jim2,rxm2,rym2,sxm2,sym2] = jac2d(xm2,ym2,Irm2,Ism2,Drm2,Dsm2);
-[Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Irmd,Ismd,Drmd,Dsmd);
+[Jm1,Jim1,rxm1,rym1,sxm1,sym1] = jac2d(xm1,ym1,Drm1,Dsm1);
+[Jm2,Jim2,rxm2,rym2,sxm2,sym2] = jac2d(xm2,ym2,Drm2,Dsm2);
+[Jmd,Jimd,rxmd,rymd,sxmd,symd] = jac2d(xmd,ymd,Drmd,Dsmd);
 
 % mass
 Bm1  = Jm1 .* (wrm1*wsm1');
