@@ -241,8 +241,8 @@ function [x,y] = usrgeom(nx,ny,Ex,Ey)
 a = -0.5; lx = 2.5; ly=2.0;%a = -0.5; lx = 1.0; ly=1.0;
 xx=a+lx/2*(x1d+1); yy=a+ly/2*(y1d+1); [x,y] = ndgrid(xx,yy);
 
-[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(x1d,y1d);
-[x,y] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,x1d,y1d);
+%[xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp] = para(x1d,y1d);
+%[x,y] = gordonhall2d(xrm,xrp,xsm,xsp,yrm,yrp,ysm,ysp,x1d,y1d);
 
 end
 %------------------------------------------------------------------------------
@@ -260,7 +260,7 @@ vy = 0*xm1;
 ps = 0*xm1;
 pr = 0*xm2;
 
-T   = 10.0;
+T   = 10.0; % fintime
 CFL = 0.1;
 
 % time stepper
@@ -323,21 +323,21 @@ if(istep==nstep)
 	['Finished Timestepping']
 	%['Energy in vx,vy,pr,ps'],[L2(vx,Bm1),L2(vy,Bm1),L2(pr,Bm2),L2(ps,Bm1)]
 	
-	%% play movie
-	%movie(fig,mov,-2,40);
+	% play movie
+	movie(fig,mov,-2,40);
 	
-	%% save as gif
-	%gname = [cname,'.gif'];
-	%fps   = 40;
-	%mov   = [mov,flip(mov)];
-	%
-	%for i=1:length(mov)
-	%	f = mov(i);
-	%	[img,cmap] = rgb2ind(f.cdata,256);
-	%	if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
-	%	else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
-	%	end
-	%end
+	% save as gif
+	gname = [cname,'.gif'];
+	fps   = 40;
+	mov   = [mov,flip(mov)];
+	
+	for i=1:length(mov)
+		f = mov(i);
+		[img,cmap] = rgb2ind(f.cdata,256);
+		if i==1 imwrite(img,cmap,gname,'gif','DelayTime',1/fps,'LoopCount',Inf)
+		else imwrite(img,cmap,gname,'gif','WriteMode','append','DelayTime',1/fps)
+		end
+	end
 end
 
 end
